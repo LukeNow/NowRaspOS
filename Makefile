@@ -1,8 +1,8 @@
 SRCS = $(wildcard *.c)
 OBJS = $(SRCS:.c=.o)
-CFLAGS = -Wall -O2 -Wextra -ffreestanding -mcpu=cortex-a53 -march=armv8-a
+CFLAGS = -Wall -O2 -Wextra -ffreestanding -mcpu=cortex-a53 -march=armv8-a -mgeneral-regs-only
 LFLAGS = -ffreestanding -O2 -nostdlib
-QEMU_FLAGS = -serial null -serial stdio
+QEMU_FLAGS = -serial null -serial stdio -smp 4
 QEMU_DBG_FLAGS = -S -s
 
 QEMU = qemu-system-aarch64
