@@ -3,6 +3,7 @@
 
 #include <kernel/gpio.h>
 #include <common/common.h>
+#include <kernel/aarch64_common.h>
 
 static int uart_ready = 0;
 
@@ -35,6 +36,7 @@ void uart_init()
     *GPPUDCLK0 = 0; // Now disable the clk assert on the pins that they are programed
     *AUX_MU_CNTL = 3; // Finally enable miniuart TX/RX
 
+    aarch64_mb();
     uart_ready = 1;
 }
 
