@@ -6,11 +6,8 @@
 
 int lock_trylock(lock_t *lock)
 {
-    uint32_t ret = 0;
-    
-    ret = atomic_cmpxchg(lock, 0, 1);
-    //0 for success in lock, 1 for lock is currently taken
-    return ret; 
+    /* 0 for success in lock, 1 for lock is currently taken or there is contention. */
+    return atomic_cmpxchg(lock, 0, 1);
 }
 
 int lock_tryunlock(lock_t *lock)
