@@ -1,6 +1,6 @@
 #ifndef __MMU_H
 #define __MMU_H
 
-void mmu_init();
+int mmu_init();
 
 #endif
