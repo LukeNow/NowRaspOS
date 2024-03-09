@@ -41,5 +41,9 @@ SECTIONS
     __bss_size = __bss_end - __bss_start;
     __end = .;
     __stackpage_start = .;
-    .  += 4096;
+    .  += (4096 * 4);
+    __stackpage_end = .;
+    __earlypage_start = .;
+    .  += (4096 * 256  * 8);
+    __earlypage_end = .;
 }
