@@ -43,7 +43,7 @@ $(OBJ_DIR)/%.o: $(SRC_KERNEL)/%.S
 	mkdir -p $(@D)
 	$(CC) $(CFLAGS) -I$(SRC_KERNEL) -c $< -o $@
 
-$(OBJ_DIR)/%.o: $(COMMON_SRC)/%.c
+$(OBJ_DIR)/%.o: $(SRC_COMMON)/%.c
 	mkdir -p $(@D)
 	$(CC) $(CFLAGS) -I$(SRC_KERNEL) -I$(HEADER_INCLUDE) -c $< -o $@
 
