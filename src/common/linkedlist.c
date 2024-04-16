@@ -6,8 +6,6 @@
 /* Append the NEXT node after NODE */
 static int _ll_append_node(ll_node_t * node, ll_node_t * next)
 {   
-    ll_node_t * _next;
-
     if (!node || !next) {
         ASSERT(0);
         return 1;
@@ -164,14 +162,15 @@ ll_node_t * ll_pop_list(ll_node_t * root)
 {
     ll_node_t * ret;
 
-    if (!root || root->next == root) { // Should popping empty list be err?
+    if (!root) {
         ASSERT(0);
         return NULL;
     }
 
-     // Size is 0
-    if ((unsigned int)root->data == 0)
-        return 1;
+    // Popping empty list
+    if (root->next == root || (unsigned int)root->data == 0) {
+        return NULL;
+    }
 
     ret = root->last;
     if (_ll_delete_node(ret, NULL)) {
