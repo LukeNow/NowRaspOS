@@ -15,6 +15,11 @@ static uint8_t *early_page_curr;
 
 int mm_initialized = 0;
 
+int mm_early_intialized()
+{
+    return mm_initialized;
+}
+
 int mm_early_init()
 {
     uint32_t early_page_size = ((uint64_t) __earlypage_end) - ((uint64_t) __earlypage_start);
