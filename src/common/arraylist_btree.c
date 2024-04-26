@@ -8,14 +8,19 @@
 
 int al_btree_init(al_btree_t * btree, void * buffer, size_t num_entries)
 {
-    if (!btree || !num_entries || !buffer || !math_is_power2_64(num_entries)) {
+    if (!btree) {
         ASSERT(0);
         return 1;
     }
-    
-    btree->array = buffer;
+
+    memset(btree, 0, sizeof(al_btree_t));
+
     btree->num_entries = num_entries;
-    btree->array_size = (AL_BTREE_ENTRY_SIZE * num_entries) / BITS_PER_BYTE; //In Bytes 
+
+    if (num_entries) {
+        ASSERT(buffer || math_is_power2_64(num_entries));
+        btree->array = buffer;
+    }
 
     return 0;
 }
@@ -25,8 +30,16 @@ al_btree_entry_t _al_btree_get_array_entry(al_btree_t * btree, unsigned int inde
     unsigned int array_index = ENTRY_ARRAY_INDEX(index);
     unsigned int bit_index = 0;
     uint8_t mask = 0;
-    uint8_t entry_data = btree->array[array_index];
+    uint8_t entry_data;
+    uint8_t * array;
 
+    if (btree->num_entries) {
+        array = btree->array;
+    } else {
+        array = &(btree->array);
+    }
+
+    entry_data = array[array_index];
     bit_index = (AL_BTREE_ENTRY_SIZE * index) % BITS_PER_BYTE;
     mask = BITS(AL_BTREE_ENTRY_SIZE) << bit_index;
     entry_data = (entry_data & mask) >> bit_index;
@@ -39,14 +52,23 @@ int _al_btree_set_array_entry(al_btree_t * btree, unsigned int index, al_btree_e
     unsigned int array_index = ENTRY_ARRAY_INDEX(index);
     unsigned int bit_index = 0;
     uint8_t mask = 0;
-    uint8_t entry_data = btree->array[array_index];
+    uint8_t entry_data;
+    uint8_t * array;
+
+     if (btree->num_entries) {
+        array = btree->array;
+    } else {
+        array = &(btree->array);
+    }
+
+    entry_data = array[array_index];
 
     bit_index = (AL_BTREE_ENTRY_SIZE * index) % BITS_PER_BYTE;
     mask = BITS(AL_BTREE_ENTRY_SIZE) << bit_index;
     // Clear the entry, then set the entry with the data
     entry_data = (entry_data &~ mask) | (entry << bit_index);
 
-    btree->array[array_index] = entry_data;
+    array[array_index] = entry_data;
  
     return 0;
 }
@@ -123,7 +145,7 @@ int _al_btree_find_free_node(al_btree_t * btree, int level)
     root_entry = _al_btree_get_array_entry(btree, 0);
 
     if (root_entry == AL_ENTRY_FULL) {
-        return AL_NULL_INDEX; // There are no free leaves since root node is non-zero
+        return AL_NULL_INDEX; // There are no free leaves since root is full
     }
 
     while (curr_level != level) {
@@ -188,14 +210,16 @@ int al_btree_add_node(al_btree_t * btree, int level)
 {
     int ret = 0;
     int index = 0;
+    unsigned int num_entries;
     
     if (!btree || level < -1) {
         ASSERT(0);
         return 1;
     }
 
+    num_entries = ((btree->num_entries == AL_BTREE_INPLACE) ? AL_BTREE_INPLACE_NUM_ENTRIES : btree->num_entries);
     if (level == -1) { // -1 means finding the leaf node at the bottom level of btree
-        level = math_log2_64(btree->num_entries) - 1;
+        level = math_log2_64(num_entries) - 1;
     }
 
     index = _al_btree_find_free_node(btree, level);

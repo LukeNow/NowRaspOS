@@ -28,7 +28,7 @@ int poolalloc_init(poolalloc_t * pool, unsigned int num_objects, size_t object_s
 
     for (int i = 0; i < pool->num_buckets; i++) {
         memset(&pool->buckets[i], 0, sizeof(poolalloc_bucket_t));
-        al_btree_init(&pool->buckets[i].btree, &pool->buckets[i].array_list, POOLALLOC_AL_ENTRIES_PER_BUCKET);
+        al_btree_init(&pool->buckets[i].btree, NULL, AL_BTREE_INPLACE);
     }
 
     return 0;
@@ -37,8 +37,7 @@ int poolalloc_init(poolalloc_t * pool, unsigned int num_objects, size_t object_s
 
 int _poolalloc_atomic_btree_alloc(poolalloc_bucket_t * bucket)
 {
-    uint64_t temp_list;
-    uint64_t bucket_list;
+    al_btree_t orig_btree;
     al_btree_t temp_btree;
     unsigned int entry_index;
 
@@ -48,16 +47,14 @@ int _poolalloc_atomic_btree_alloc(poolalloc_bucket_t * bucket)
     }
 
     do {
-        bucket_list = bucket->array_list;
-        temp_list = bucket->array_list;
+        orig_btree = bucket->btree;
         temp_btree = bucket->btree;
-        temp_btree.array = &temp_list;
         
         if ((entry_index = al_btree_add_node(&temp_btree, -1)) == AL_NULL_INDEX) {
             return entry_index;
         }
 
-    } while (atomic_cmpxchg(&bucket->array_list, bucket_list, temp_list));
+    } while (atomic_cmpxchg(&bucket->btree.array, orig_btree.array, temp_btree.array));
 
     return entry_index;
 }
@@ -65,8 +62,7 @@ int _poolalloc_atomic_btree_alloc(poolalloc_bucket_t * bucket)
 int _poolalloc_atomic_btree_free(poolalloc_bucket_t * bucket, unsigned int entry_index)
 {
     int ret = 0;
-    uint64_t temp_list;
-    uint64_t bucket_list;
+    al_btree_t orig_btree;
     al_btree_t temp_btree;
 
     if (!bucket) {
@@ -75,16 +71,14 @@ int _poolalloc_atomic_btree_free(poolalloc_bucket_t * bucket, unsigned int entry
     }
 
     do {
-        bucket_list = bucket->array_list;
-        temp_list = bucket->array_list;
+        orig_btree = bucket->btree;
         temp_btree = bucket->btree;
-        temp_btree.array = &temp_list;
         
         if ((ret = al_btree_remove_node(&temp_btree, entry_index))) {
             return AL_NULL_INDEX;
         }
 
-    } while (atomic_cmpxchg(&bucket->array_list, bucket_list, temp_list));
+    } while (atomic_cmpxchg(&bucket->btree.array, orig_btree.array, temp_btree.array));
 
     return 0;
 }

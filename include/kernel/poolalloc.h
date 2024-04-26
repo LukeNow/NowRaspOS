@@ -14,7 +14,6 @@
 
 typedef struct poolalloc_bucket {
     al_btree_t btree;
-    uint64_t array_list;
 } poolalloc_bucket_t;
 
 typedef struct poolalloc {
