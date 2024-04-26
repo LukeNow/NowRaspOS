@@ -3,6 +3,32 @@
 #include <kernel/uart.h>
 #include <kernel/printf.h>
 
+int ll_root_init(ll_node_t * root)
+{
+     if (!root) {
+        ASSERT(0);
+        return 1;
+    }
+
+    memset(root, 0, sizeof(ll_node_t));
+
+    return 0;
+}
+
+int ll_node_init(ll_node_t * node, void * data)
+{
+      if (!node) {
+        ASSERT(0);
+        return 1;
+    }
+
+    memset(node, 0, sizeof(ll_node_t));
+
+    node->data = data;
+
+    return 0;
+}
+
 /* Append the NEXT node after NODE */
 static int _ll_append_node(ll_node_t * node, ll_node_t * next)
 {   
