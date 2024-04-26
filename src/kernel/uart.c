@@ -71,7 +71,6 @@ char uart_getc() {
     return reg;
 }
 
-
 void uart_hex(uint64_t d) {
     uint32_t n;
     uart_puts("0x");
