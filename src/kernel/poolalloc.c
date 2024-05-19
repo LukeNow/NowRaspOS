@@ -11,14 +11,14 @@ size_t poolalloc_bucket_size(unsigned int num_objects)
 }
 
 
-int poolalloc_init(poolalloc_t * pool, unsigned int num_objects, size_t object_size, void * object_buffer, void * bucket_buffer)
+int poolalloc_init(poolalloc_t * pool, unsigned int num_objects, size_t object_size, void * object_buffer, void * bucket_array)
 {
-    if (!pool || !num_objects || !object_size || !object_buffer || !bucket_buffer) {
+    if (!pool || !num_objects || !object_size || !object_buffer || !bucket_array) {
         ASSERT(0);
         return 1;
     }
 
-    pool->buckets = bucket_buffer;
+    pool->buckets = bucket_array;
     pool->object_buffer = object_buffer;
     pool->num_buckets = POOLALLOC_NUM_BUCKETS(num_objects);
     pool->num_objects = num_objects;
@@ -28,7 +28,7 @@ int poolalloc_init(poolalloc_t * pool, unsigned int num_objects, size_t object_s
 
     for (int i = 0; i < pool->num_buckets; i++) {
         memset(&pool->buckets[i], 0, sizeof(poolalloc_bucket_t));
-        al_btree_init(&pool->buckets[i].btree, NULL, AL_BTREE_INPLACE);
+        al_btree_init(&pool->buckets[i].btree);
     }
 
     return 0;
@@ -50,11 +50,11 @@ int _poolalloc_atomic_btree_alloc(poolalloc_bucket_t * bucket)
         orig_btree = bucket->btree;
         temp_btree = bucket->btree;
         
-        if ((entry_index = al_btree_add_node(&temp_btree, -1)) == AL_NULL_INDEX) {
+        if ((entry_index = al_btree_add_node(&temp_btree, -1)) == AL_BTREE_NULL_INDEX) {
             return entry_index;
         }
 
-    } while (atomic_cmpxchg(&bucket->btree.array, orig_btree.array, temp_btree.array));
+    } while (atomic_cmpxchg(&bucket->btree.list, orig_btree.list, temp_btree.list));
 
     return entry_index;
 }
@@ -75,10 +75,10 @@ int _poolalloc_atomic_btree_free(poolalloc_bucket_t * bucket, unsigned int entry
         temp_btree = bucket->btree;
         
         if ((ret = al_btree_remove_node(&temp_btree, entry_index))) {
-            return AL_NULL_INDEX;
+            return AL_BTREE_NULL_INDEX;
         }
 
-    } while (atomic_cmpxchg(&bucket->btree.array, orig_btree.array, temp_btree.array));
+    } while (atomic_cmpxchg(&bucket->btree.list, orig_btree.list, temp_btree.list));
 
     return 0;
 }
@@ -87,7 +87,7 @@ void * poolalloc_alloc(poolalloc_t * pool)
 {
     poolalloc_bucket_t * bucket;
     unsigned int bucket_index;
-    unsigned int entry_index = AL_NULL_INDEX;
+    unsigned int entry_index = AL_BTREE_NULL_INDEX;
     
     if (!pool || !pool->object_buffer) {
         ASSERT(0);
@@ -97,18 +97,19 @@ void * poolalloc_alloc(poolalloc_t * pool)
     for (bucket_index = 0; bucket_index < pool->num_buckets; bucket_index++) {
         bucket = &pool->buckets[bucket_index];
 
-        if (al_btree_is_full(&bucket->btree)) {
+        // Bucket is full, find another
+        if (al_btree_level_is_full(&bucket->btree, AL_BTREE_MAX_LEVEL)) {
             continue;
         }
 
         entry_index = _poolalloc_atomic_btree_alloc(bucket);
-        if (entry_index != AL_NULL_INDEX) {
+        if (entry_index != AL_BTREE_NULL_INDEX) {
             break;
         }
     }
 
     // Buckets are all full most likely. Expand?
-    if (entry_index == AL_NULL_INDEX) {
+    if (entry_index == AL_BTREE_NULL_INDEX) {
         return NULL;
     }
 
