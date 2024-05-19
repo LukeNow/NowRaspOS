@@ -12,6 +12,7 @@
 #define DEBUG_DATA(MSG, DATA) do { PRINTF_DEBUG_MSG((MSG)); printfdata("", DATA);} while (0)
 #define DEBUG_DATA_DIGIT(MSG, DATA) do { PRINTF_DEBUG_MSG((MSG)); printfdigit("", DATA);} while (0)
 #define DEBUG_FUNC(MSG, DATA) do { printf(__FUNCTION__); printf(": "); printfdata(MSG, DATA);} while (0)
+#define DEBUG_FUNC_DIGIT(MSG, DATA) do { printf(__FUNCTION__); printf(": "); printf(MSG); printfdigit(" ", DATA);} while (0)
 
 #endif
 
