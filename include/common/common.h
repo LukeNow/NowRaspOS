@@ -5,6 +5,7 @@
 #define CYCLE_INFINITE do {  while(1){ asm volatile ("nop"); } } while (0)
 
 typedef uint32_t flags_t;
+typedef uint8_t bit_t;
 
 #define BITS_PER_BYTE 8
 
