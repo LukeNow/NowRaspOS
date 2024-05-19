@@ -2,6 +2,7 @@
 #include <common/assert.h>
 #include <kernel/uart.h>
 #include <kernel/printf.h>
+#include <common/string.h>
 
 int ll_root_init(ll_node_t * root)
 {
