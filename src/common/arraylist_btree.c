@@ -6,7 +6,69 @@
 #include <common/math.h>
 #include <common/string.h>
 
-int al_btree_init(al_btree_t * btree, void * buffer, size_t num_entries)
+#define LEFT_CHILD(INDEX) (2*(INDEX)+1)
+#define RIGHT_CHILD(INDEX) (2*(INDEX)+2)
+#define DEFAULT_CHILD(INDEX) (LEFT_CHILD((INDEX))) //The "default" child as its the earlier index of the children
+#define PARENT(INDEX) (((INDEX)-1)/2)
+#define SIBLING(INDEX) (((INDEX-1)^1)+1)
+
+#define TREE_LVL_0_MASK 0b1
+#define TREE_LVL_1_MASK 0b110
+#define TREE_LVL_2_MASK 0b1111000
+#define TREE_LVL_3_MASK 0b111111110000000
+#define TREE_LVL_4_MASK 0b1111111111111111000000000000000
+#define TREE_LVL_5_MASK 0b0111111111111111111111111111111110000000000000000000000000000000
+#define TREE_FULL 0x7FFFFFFFFFFFFFFF
+
+
+static const uint64_t level_to_mask[] = {
+    TREE_LVL_0_MASK,
+    TREE_LVL_1_MASK,
+    TREE_LVL_2_MASK, 
+    TREE_LVL_3_MASK,
+    TREE_LVL_4_MASK,
+    TREE_LVL_5_MASK
+};
+
+static const unsigned int level_to_index[] = {
+    0, 1, 3, 7, 15, 31, 63
+};
+
+static inline al_btree_entry_t _al_btree_get_array_entry64(uint64_t * list, unsigned int index, size_t size)
+{   
+    return (uint64_t)(*list & ((uint64_t)BITS(size) << index)) >> index;
+}
+
+static inline void _al_btree_set_array_entry64(uint64_t * list, unsigned int index, al_btree_entry_t entry, size_t size)
+{   
+    // Clear the entry, then set the entry with the data
+    *list = (*list &~ ((uint64_t)BITS(size) << index)) | ((uint64_t)entry << index);
+}
+
+static inline al_btree_entry_t _al_btree_get_array_entry32(uint32_t * list, unsigned int index, size_t size)
+{
+    return (uint32_t)(*list & ((uint32_t)BITS(size) << index)) >> index;
+}
+
+static inline void _al_btree_set_array_entry32(uint32_t * list, unsigned int index, al_btree_entry_t entry, size_t size)
+{ 
+    // Clear the entry, then set the entry with the data
+    *list = (*list &~ ((uint32_t)BITS(size)<< index)) | ((uint32_t)entry << index);
+}
+
+
+static inline unsigned int _al_btree_index_to_level(unsigned int index)
+{   
+    unsigned int i;
+    for (i = 0; i < AL_BTREE_MAX_LEVEL + 1; i++) {
+        if (index < level_to_index[i + 1])
+            break;
+    }
+
+    return i;
+}
+
+int al_btree_init(al_btree_t * btree)
 {
     if (!btree) {
         ASSERT(0);
@@ -15,219 +77,133 @@ int al_btree_init(al_btree_t * btree, void * buffer, size_t num_entries)
 
     memset(btree, 0, sizeof(al_btree_t));
 
-    btree->num_entries = num_entries;
-
-    if (num_entries) {
-        ASSERT(buffer || math_is_power2_64(num_entries));
-        btree->array = buffer;
-    }
-
     return 0;
 }
 
-al_btree_entry_t _al_btree_get_array_entry(al_btree_t * btree, unsigned int index)
+unsigned int al_btree_level_is_full(al_btree_t * btree, unsigned int level)
 {
-    unsigned int array_index = ENTRY_ARRAY_INDEX(index);
-    unsigned int bit_index = 0;
-    uint8_t mask = 0;
-    uint8_t entry_data;
-    uint8_t * array;
-
-    if (btree->num_entries) {
-        array = btree->array;
-    } else {
-        array = &(btree->array);
-    }
-
-    entry_data = array[array_index];
-    bit_index = (AL_BTREE_ENTRY_SIZE * index) % BITS_PER_BYTE;
-    mask = BITS(AL_BTREE_ENTRY_SIZE) << bit_index;
-    entry_data = (entry_data & mask) >> bit_index;
-
-    return entry_data;
+    uint64_t level_mask = level_to_mask[level];
+    
+    return (btree->list & level_mask) == level_mask;
 }
 
-int _al_btree_set_array_entry(al_btree_t * btree, unsigned int index, al_btree_entry_t entry)
+void _al_btree_add_array_entry(al_btree_t * btree, unsigned int index, unsigned int level, al_btree_entry_t entry)
 {
-    unsigned int array_index = ENTRY_ARRAY_INDEX(index);
-    unsigned int bit_index = 0;
-    uint8_t mask = 0;
-    uint8_t entry_data;
-    uint8_t * array;
 
-     if (btree->num_entries) {
-        array = btree->array;
-    } else {
-        array = &(btree->array);
-    }
-
-    entry_data = array[array_index];
-
-    bit_index = (AL_BTREE_ENTRY_SIZE * index) % BITS_PER_BYTE;
-    mask = BITS(AL_BTREE_ENTRY_SIZE) << bit_index;
-    // Clear the entry, then set the entry with the data
-    entry_data = (entry_data &~ mask) | (entry << bit_index);
-
-    array[array_index] = entry_data;
- 
-    return 0;
-}
-
-int _al_btree_add_array_entry(al_btree_t * btree, unsigned int index, al_btree_entry_t entry)
-{
-    unsigned int left_index;
-    al_btree_entry_t left_entry;
-    unsigned int right_index;
-    al_btree_entry_t right_entry;
-    unsigned int parent_index;
-    al_btree_entry_t parent_entry;
+    unsigned int child_index, parent_index, curr_index, sibling_index, curr_level, curr_size, curr_entry;
+    uint64_t level_mask;
     
-    unsigned int curr_index;
-    
-    al_btree_entry_t entry_data = 0;
-    int ret = 0;
+    ASSERT(btree && index < AL_BTREE_NUM_ENTRIES);    
 
-    if (!btree) {
-        ASSERT(0);
-        return AL_NULL_INDEX;
-    }
+    _al_btree_set_array_entry64(&btree->list, index, entry, 1);
 
-    _al_btree_set_array_entry(btree, index, entry);
-
+    // Go down the tree and set all children of the node so that they cannot be reserved
+    curr_level = level;
     curr_index = index;
+    curr_size = 2;
 
-    while (curr_index) {
+    while (curr_level != AL_BTREE_MAX_LEVEL) {
+        curr_entry = (entry ? BITS(curr_size) : 0);
+        child_index = DEFAULT_CHILD(curr_index);
+        _al_btree_set_array_entry64(&btree->list, child_index, curr_entry, curr_size);
+        curr_level++;
+        curr_index = child_index;
+        curr_size = curr_size << 1;
+    }
+    
+
+    //Go up the tree and set the parents that they are also unavailable. However if there are still free children that can be allocated and will be free
+    curr_level = level;
+    curr_index = index;
+    curr_size = 1;
+
+    while (curr_level != 0) {
+        curr_entry = (entry ? BITS(curr_size) : 0);
         parent_index = PARENT(curr_index);
-        left_index = LEFT_CHILD(parent_index);
-        right_index = RIGHT_CHILD(parent_index);
+        sibling_index = SIBLING(curr_index);
 
-        left_entry = _al_btree_get_array_entry(btree, left_index);
-        right_entry = _al_btree_get_array_entry(btree, right_index);
-        parent_entry = _al_btree_get_array_entry(btree, parent_index);
-
-        if ((right_entry == AL_ENTRY_SPLIT || left_entry == AL_ENTRY_SPLIT) ||
-            right_entry == AL_ENTRY_FULL ^ left_entry == AL_ENTRY_FULL) {
-            entry_data = AL_ENTRY_SPLIT;
-        } else if (right_entry == AL_ENTRY_FULL && left_entry == AL_ENTRY_FULL) {
-            entry_data = AL_ENTRY_FULL;
-        }
-        else {
-            entry_data = AL_ENTRY_UNUSED;
+        // If the entry is a deletion entry and our sibling is set, do not propogate remove changes up
+        // the tree because the parent is not free in this case
+        if (!curr_entry && _al_btree_get_array_entry64(&btree->list, sibling_index, 1)) {
+            return;   
         }
 
-        _al_btree_set_array_entry(btree, parent_index, entry_data);
-     
+        _al_btree_set_array_entry64(&btree->list, parent_index, curr_entry, 1);
+
+        curr_level--;
         curr_index = parent_index;
     }
-    
-    return ret;
 }
 
 
-int _al_btree_find_free_node(al_btree_t * btree, int level)
-{
-    unsigned int left_index;
-    al_btree_entry_t left_entry;
-    unsigned int right_index;
-    al_btree_entry_t right_entry;
-    unsigned int root_index;
-    al_btree_entry_t root_entry;
 
-    unsigned int curr_level = 0;
-    unsigned int curr_index = 0;
-    int ret = 0;
-    
-    if (!btree || level < -1) {
-        ASSERT(0);
-        return -1;
+int _al_btree_find_free_node(al_btree_t * btree, unsigned int level)
+{   
+    unsigned int index, curr_index, end_index;
+    uint64_t level_mask = level_to_mask[level];
+
+    if (al_btree_level_is_full(btree, level)) {
+        return AL_BTREE_NULL_INDEX;
     }
 
-    root_entry = _al_btree_get_array_entry(btree, 0);
-
-    if (root_entry == AL_ENTRY_FULL) {
-        return AL_NULL_INDEX; // There are no free leaves since root is full
-    }
-
-    while (curr_level != level) {
-        left_index = LEFT_CHILD(curr_index);
-        right_index = RIGHT_CHILD(curr_index);
-
-        left_entry = _al_btree_get_array_entry(btree, left_index);
-        
-        right_entry = _al_btree_get_array_entry(btree, right_index);
-
-        if (right_entry == AL_ENTRY_FULL && left_entry == AL_ENTRY_FULL) {
-            return AL_NULL_INDEX;
+    end_index = level_to_index[level + 1];
+    for (curr_index = level_to_index[level]; curr_index < end_index; curr_index++) {
+        if (!_al_btree_get_array_entry64(&btree->list, curr_index, 1)) {
+            return curr_index;
         }
-
-        if (left_entry == AL_ENTRY_SPLIT || left_entry == AL_ENTRY_UNUSED)
-            curr_index = left_index;
-        else if (right_entry == AL_ENTRY_SPLIT || right_entry == AL_ENTRY_UNUSED)
-            curr_index = right_index;
-
-        ASSERT(curr_index != PARENT(left_index));
-
-        curr_level ++;
     }
 
-    return curr_index;
-}
-
-int al_btree_is_full(al_btree_t * btree)
-{
-    al_btree_entry_t entry;
-
-     if (!btree) {
-        ASSERT(0);
-        return -1;
-    }
-
-    entry = _al_btree_get_array_entry(btree, 0);
-
-    if (entry == AL_ENTRY_FULL)
-        return 1;
-
-    return 0;
+    return AL_BTREE_NULL_INDEX;
 }
 
 int al_btree_remove_node(al_btree_t * btree, unsigned int index)
 {
-    int ret = 0;
+    unsigned int level;
 
-    if (!btree || index > -1) {
+    if (!btree || index < 0 || index > AL_BTREE_NUM_ENTRIES) {
         ASSERT(0);
         return 1;
     }
 
-    return _al_btree_add_array_entry(btree, index, AL_ENTRY_UNUSED);
+    level = _al_btree_index_to_level(index);
+
+    _al_btree_add_array_entry(btree, index, level, 0);
+
+    return 0;
 }
 
 /* Add an entry to the Array list Binary tree
- * Entry can be transient, but entry->data should not be
- * 
  */
 int al_btree_add_node(al_btree_t * btree, int level)
 {
     int ret = 0;
     int index = 0;
+    al_btree_entry_t default_entry;
     unsigned int num_entries;
     
-    if (!btree || level < -1) {
+    if (!btree || level < -1 || level > AL_BTREE_MAX_LEVEL) {
         ASSERT(0);
         return 1;
     }
 
-    num_entries = ((btree->num_entries == AL_BTREE_INPLACE) ? AL_BTREE_INPLACE_NUM_ENTRIES : btree->num_entries);
-    if (level == -1) { // -1 means finding the leaf node at the bottom level of btree
-        level = math_log2_64(num_entries) - 1;
+    // Special case of the root, check it and assign here
+    if (level == 0 && al_btree_level_is_full(btree, 0)) {
+       return AL_BTREE_NULL_INDEX;
+    } else if (level == 0)  {
+        btree->list = TREE_FULL;
+        return 0;
     }
+
+    if (level == -1)
+        level = AL_BTREE_MAX_LEVEL;
 
     index = _al_btree_find_free_node(btree, level);
     if (index < 0) {
-        return AL_NULL_INDEX;
+        return AL_BTREE_NULL_INDEX;
     }
 
-    ret = _al_btree_add_array_entry(btree, index, AL_ENTRY_FULL);
+    DEBUG_DATA_DIGIT("Found node=", index);
+    _al_btree_add_array_entry(btree, index, level, 1);
 
     return index;
 }
