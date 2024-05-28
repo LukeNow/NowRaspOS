@@ -13,6 +13,9 @@ int ll_root_init(ll_node_t * root)
 
     memset(root, 0, sizeof(ll_node_t));
 
+    root->last = root;
+    root->next = root;
+
     return 0;
 }
 
