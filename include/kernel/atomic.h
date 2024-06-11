@@ -7,6 +7,7 @@
 
 int atomic_cmpxchg(uint64_t *ptr, uint64_t old, uint64_t new);
 int atomic_fetch_add(uint64_t *addr, uint64_t val);
+int atomic_fetch_sub(uint64_t *addr, uint64_t val);
 int atomic_fetch_or(uint64_t *addr, uint64_t val);
 
 
