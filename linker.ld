@@ -35,6 +35,7 @@ SECTIONS
     {
         bss = .;
         *(.bss)
+        *(COMMON)
     }
     . = ALIGN(4096); /* align to page size */
     __bss_end = .;
