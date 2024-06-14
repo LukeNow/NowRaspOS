@@ -20,6 +20,7 @@
 #define TREE_LVL_4_MASK 0b1111111111111111000000000000000
 #define TREE_LVL_5_MASK 0b0111111111111111111111111111111110000000000000000000000000000000
 
+#define BTREE_ALLOC_TRIES 5
 
 static const uint64_t level_to_mask[] = {
     TREE_LVL_0_MASK,
@@ -284,4 +285,69 @@ int al_btree_add_node(al_btree_t * btree, al_btree_scan_t * scan, int level)
     _al_btree_add_array_entry(btree, scan, index, level, 1);
 
     return index;
+}
+
+int al_btree_atomic_cmpxchg(al_btree_t *btree, al_btree_t expected, al_btree_t target)
+{
+    ASSERT(btree);
+    
+    int ret;
+    unsigned int retries = 0;
+
+    for (int i = 0; i < BTREE_ALLOC_TRIES; i++) {
+        ret = atomic_cmpxchg(btree, expected, target);
+        if (!ret)
+            return 0;
+    }
+
+    return 1;
+}
+
+int al_btree_atomic_add_node(al_btree_t * btree, al_btree_scan_t * scan, int level)
+{
+    int assigned_index;
+    unsigned int _level;
+    al_btree_t orig_btree;
+    al_btree_t temp_btree;
+    int ret;
+    unsigned int retries = 0;
+
+    do {
+        orig_btree = *btree;
+        temp_btree = *btree;
+
+        assigned_index = al_btree_add_node(&temp_btree, scan, level);
+
+        if (assigned_index == AL_BTREE_NULL_INDEX) {
+            DEBUG("Al btree failed to add node");
+            return assigned_index;
+        }
+
+        retries++;
+    } while (retries  < BTREE_ALLOC_TRIES && (ret = atomic_cmpxchg(btree, orig_btree, temp_btree)));
+
+    return assigned_index;
+}
+
+int al_btree_atomic_remove_node(al_btree_t * btree, al_btree_scan_t * scan, unsigned int index)
+{
+    al_btree_t orig_btree;
+    al_btree_t temp_btree;
+    int ret;
+    unsigned int retries = 0;
+
+    do {
+        orig_btree = *btree;
+        temp_btree = *btree;
+
+        ret = al_btree_remove_node(&temp_btree, scan, index);
+
+        if (ret) {
+            return ret;
+        }
+
+        retries++;
+    } while (retries  < BTREE_ALLOC_TRIES && (ret = atomic_cmpxchg(btree, orig_btree, temp_btree)));
+
+    return 0;
 }
