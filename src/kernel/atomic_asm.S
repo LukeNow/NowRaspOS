@@ -29,8 +29,8 @@ _atomic_fetch_add:
     ret
 
 // uint64_t *ptr, int val
-.global _atomic_fetch_add
-_atomic_fetch_add:
+.global _atomic_fetch_sub
+_atomic_fetch_sub:
 1:
     ldaxr   x4, [x0]
     mov     x5, #0

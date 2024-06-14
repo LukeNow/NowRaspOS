@@ -18,6 +18,12 @@ int atomic_add(uint64_t *ptr, uint64_t val)
 	return _atomic_fetch_add(ptr, val);
 }
 
+extern int _atomic_fetch_sub(uint64_t *ptr, uint64_t val);
+int atomic_sub(uint64_t *ptr, uint64_t val)
+{
+	return _atomic_fetch_sub(ptr, val);
+}
+
 extern int _atomic_fetch_or(uint64_t *ptr, uint64_t val);
 int atomic_or(uint64_t *ptr, uint64_t val)
 {
