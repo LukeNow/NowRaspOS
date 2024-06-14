@@ -6,6 +6,7 @@
 #include <kernel/addr_defs.h>
 #include <kernel/mm.h>
 #include <kernel/gpio.h>
+#include <common/bits.h>
 
 #define PT_ENTRY    0b11
 #define PT_PAGE     0b11     
@@ -97,7 +98,7 @@ static int mmu_map_entry(uint64_t *phys_addr, uint64_t *virt_addr, uint64_t attr
         PT_PRIV = PT_KERNEL;
     } else {
         l1_tbl = (uint64_t *)low_l1_table_start;
-        PT_PRIV = PT_USER;
+        PT_PRIV = PT_KERNEL;
     }
 
     ASSERT(l1_tbl);
@@ -304,6 +305,8 @@ int mmu_init()
     asm volatile ("msr mair_el1, %0" : : "r" (r));
     printf("MAPPING 1\n");
     r = 0;
+   // r = 0x80100100;
+    
     // next, specify mapping characteristics in translate control register
     r=  (0b00LL << 37) | // TBI=0, no tagging
         (b << 32) |      // IPS=autodetected
@@ -319,20 +322,23 @@ int mmu_init()
         (0b01LL << 8) |  // IRGN0=1 write back
         (0b0LL  << 7) |  // EPD0 enable lower half
         (25LL   << 0);   // T0SZ=25, 3 levels (512G)
+    
     asm volatile ("msr tcr_el1, %0; isb" : : "r" (r));
 printf("MAPPING 2\n");
        // tell the MMU where our translation tables are. TTBR_CNP bit not documented, but required
     // lower half, user space
-    asm volatile ("msr ttbr0_el1, %0" : : "r" (((uint64_t)low_l1_table_start) + 1));
+    //asm volatile ("msr ttbr0_el1, %0" : : "r" (((uint64_t)low_l1_table_start) + 1));
+    asm volatile ("msr ttbr0_el1, %0" : : "r" ((uint64_t)low_l1_table_start));
     // upper half, kernel space
-    asm volatile ("msr ttbr1_el1, %0" : : "r" (((uint64_t)high_l1_table_start) + 1));
+    //asm volatile ("msr ttbr1_el1, %0" : : "r" (((uint64_t)high_l1_table_start) + 1));
+     asm volatile ("msr ttbr1_el1, %0" : : "r" ((uint64_t)high_l1_table_start));
 
     
     r = 0;
 printf("MAPPING 3\n");
     // finally, toggle some bits in system control register to enable page translation
     asm volatile ("dsb ish; isb; mrs %0, sctlr_el1" : "=r" (r));
-    r|=0xC00800;     // set mandatory reserved bits
+   // r|=0xC00800;     // set mandatory reserved bits
     r&=~((1<<25) |   // clear EE, little endian translation tables
          (1<<24) |   // clear E0E
          (1<<19) |   // clear WXN
