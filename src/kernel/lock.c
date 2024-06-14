@@ -4,6 +4,11 @@
 #include <kernel/atomic.h>
 #include <common/common.h>
 
+int lock_init(lock_t *lock)
+{
+    *lock = 0;
+}
+
 int lock_trylock(lock_t *lock)
 {
     /* 0 for success in lock, 1 for lock is currently taken or there is contention. */
