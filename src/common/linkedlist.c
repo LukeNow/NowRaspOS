@@ -65,7 +65,7 @@ static int _ll_delete_node(ll_node_t * node, ll_node_t * unused __attribute__((u
 
     // This is the root node and only node in the list
     if (last == node || next == node) {
-        ASSERT(0)
+        ASSERT(0);
         return 1;
     }
 
@@ -84,7 +84,7 @@ static int _ll_list_index_op(ll_node_t * root, ll_node_t * node, int index, int 
     int ret = 0;
 
     if (!root) {
-        ASSERT(0)
+        ASSERT(0);
     }
 
     if (index < 0) {
