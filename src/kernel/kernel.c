@@ -17,6 +17,9 @@
 #include <common/arraylist_btree.h>
 #include <common/string.h>
 #include <kernel/poolalloc.h>
+#include <kernel/kalloc.h>
+#include <common/rand.h>
+#include <common/bits.h>
 
 #define CORE_NUM 4
 
@@ -48,13 +51,24 @@ static void _mmu_test()
 
 static void _zero_mem()
 {
-	uint32_t end = ((uint32_t)__earlypage_end);
-	uint32_t start = ((uint32_t)__stackpage_start);
-	uint32_t size = end - start;
+	uint64_t early_page_end = ((uint64_t)__earlypage_end);
+	uint64_t early_page_start = ((uint64_t)__earlypage_start);
+	uint64_t early_page_size = early_page_end - early_page_start;
 
-	for (uint32_t *i = ((uint32_t *)start); i < ((uint32_t *)end); i ++) {
-		*i = 0;
+	uint64_t bss_end = (uint64_t)__bss_end;
+	uint64_t bss_start = (uint64_t)__bss_start;
+	uint64_t bss_size = bss_end - bss_start;
+
+	uint64_t start, end;
+
+	for (uint64_t i = bss_start; i < bss_end; i += sizeof(uint64_t)) {
+		*(uint64_t*)i = 0;
 	}
+
+	for (uint64_t i = early_page_start; i < early_page_end; i += sizeof(uint64_t)) {
+		*(uint64_t*)i = 0;
+	}
+
 }
 
 
@@ -87,6 +101,16 @@ static void _print_processor_features()
     } else {
         printf("4KB granulatory not supported\n"); 
     }
+}
+
+void _print_linker_addrs()
+{
+	printfdata(".text start=", (uint64_t)__text_start);
+	printfdata(".rodata start=", (uint64_t)__rodata_start);
+	printfdata(".data start=", (uint64_t)__data_start);
+	printfdata(".bss start=", (uint64_t)__bss_start);
+	printfdata(".stackpage start=", (uint64_t)__stackpage_start);
+	printfdata("earlypage start=", (uint64_t)__earlypage_start);
 }
 
 void kernel_child_main(uint64_t mpidr_el1)
@@ -256,54 +280,135 @@ void _math_test()
 	printf("MATH TEST DONE\n");
 }
 
+void _al_btree_verify_alloc(al_btree_t * btree, al_btree_scan_t * scan, unsigned int al_level, int expected_scan_count, int expected_level_status)
+{
+	unsigned int empty = al_btree_level_is_empty(btree, al_level);
+	unsigned int full = al_btree_level_is_full(btree, al_level);
+
+	DEBUG_FUNC_DIGIT("Al_btree verify alloc at al_level=", al_level);
+	DEBUG_FUNC_DIGIT("Is full=", full);
+	DEBUG_FUNC_DIGIT("Is empty=", empty);
+	DEBUG_FUNC_DIGIT("Expected level status==", expected_level_status);
+	DEBUG_FUNC_DIGIT("Expected scan_count=", expected_scan_count);
+	DEBUG_FUNC_DIGIT("Actual scan count=", scan->level_count[al_level]);
+	ASSERT_PANIC(scan->level_count[al_level] == expected_scan_count, "level count invalid");
+	if (expected_level_status == AL_BTREE_STATUS_EMPTY) {
+		ASSERT_PANIC(empty, "Expected empty is not true");
+	} else if (expected_level_status == AL_BTREE_STATUS_FULL) {
+		ASSERT_PANIC(full, "Expected full is not true");
+	} else {
+		ASSERT_PANIC(!full && !empty, "Expected partial is not true");
+	}
+}
+
 void _al_btree_test()
 {
-	#define AL_TEST_SIZE 64
-	#define INDEX_SIZE (AL_TEST_SIZE / 2)
+	DEBUG("-----AL BTREE TEST START");
+	#define AL_TEST_LEVEL_5_NUM_ALLOC 32
+
+	#define AL_TEST_INDEX_SIZE AL_TEST_LEVEL_5_NUM_ALLOC
 	
 	int ret = 0;
-	int indexs[INDEX_SIZE];
-	al_btree_t tree;
+	int indexs[AL_TEST_INDEX_SIZE];
+	al_btree_t btree;
 	uint8_t * buf = NULL;
+	al_btree_scan_t scan;
+	al_btree_scan_t count_scan;
+	unsigned int index_count = 0;
 
-	#define LEVEL 3
-	#define NUM 3
+	memset(&count_scan, 0, sizeof(al_btree_scan_t));
+	al_btree_init(&btree);
+
+	unsigned int al_level = AL_BTREE_MAX_LEVEL;
+	int count = 1;
+
+	DEBUG("add 1");
+
+	memset(&scan, 0, sizeof(al_btree_scan_t));
+	indexs[index_count] = al_btree_add_node(&btree, &scan, al_level);
+	ASSERT_PANIC(indexs[index_count]!= -1, "Add node failed");
+	index_count++;
 	
+	DEBUG_DATA_BINARY("AL_BTREE BUF[0]=", *(uint32_t*)(&btree));
+	DEBUG_DATA_BINARY("AL_BTREE BUF[1]=", ((uint32_t*)&btree)[1]);
+	
+	al_btree_scan_merge(&count_scan, &scan);
 
-	printf("---BTREE TEST START---\n");
-	al_btree_init(&tree);
-
-	for (int i = 0; i < INDEX_SIZE; i++) {
-
-		ret = al_btree_add_node(&tree, -1);
-		if (ret == -1) {
-			printf("AL_BTREE_ADD_LEAF FAILED\n");
-			CYCLE_INFINITE;
+	for (int i = 0; i < AL_BTREE_LEVEL_NUM; i++) {
+		if (i == 0) {
+			_al_btree_verify_alloc(&btree, &count_scan, i, 1, AL_BTREE_STATUS_FULL);
+		} else {
+			_al_btree_verify_alloc(&btree, &count_scan, i, 1, AL_BTREE_STATUS_PARTIAL);
 		}
-
-		printfdigit("NODE INDEX=", ret);
-
-		indexs[i] = ret;
 	}
 
-	for (int i = 0; i < INDEX_SIZE; i++) {
-		DEBUG_DATA_DIGIT("Removing index=", indexs[i]);
-		ret = al_btree_remove_node(&tree, indexs[i]);
-		if (ret) {
-			printf("AL_BTREE_REMOVEW_LEAF FAILED\n");
-			CYCLE_INFINITE;
+	DEBUG("add 2");
+
+	memset(&scan, 0, sizeof(al_btree_scan_t));
+	indexs[index_count] = al_btree_add_node(&btree, &scan, al_level);
+	ASSERT_PANIC(indexs[index_count]!= -1, "Add node failed");
+	index_count++;
+
+	al_btree_scan_merge(&count_scan, &scan);
+
+	for (int i = 0; i < AL_BTREE_LEVEL_NUM; i++) {
+		if (i == AL_BTREE_MAX_LEVEL) {
+			_al_btree_verify_alloc(&btree, &count_scan, i, 2, AL_BTREE_STATUS_PARTIAL);
+		} else if (i == 0) {
+			_al_btree_verify_alloc(&btree, &count_scan, i, 1, AL_BTREE_STATUS_FULL);
+		} else {
+			_al_btree_verify_alloc(&btree, &count_scan, i, 1, AL_BTREE_STATUS_PARTIAL);
 		}
 	}
 
+	DEBUG("Remove 1");
+	memset(&scan, 0, sizeof(al_btree_scan_t));
+	ret = al_btree_remove_node(&btree, &scan, indexs[0]);
+	ASSERT_PANIC(ret != -1, "Add node failed");
 
-	printfbinary("BUFF: ", *(uint32_t*)(&tree.list));
-	printfbinary("BUFF: ", ((uint32_t*)(&tree.list))[1]);
-	//printfhex("BUFF: ", *(uint32_t *)&buf[4]);
-	//printfbinary("BUFF: ", *(uint32_t *)&buf[8]);
-	//printfbinary("BUFF: ", *(uint32_t *)&buf[12]);
+	al_btree_scan_merge(&count_scan, &scan);
+
+	for (int i = 0; i < AL_BTREE_LEVEL_NUM; i++) {
+		if (i == 0) {
+			_al_btree_verify_alloc(&btree, &count_scan, i, 1, AL_BTREE_STATUS_FULL);
+		} else {
+			_al_btree_verify_alloc(&btree, &count_scan, i, 1, AL_BTREE_STATUS_PARTIAL);
+		}
+	}
+
+	DEBUG("Remove 2");
+	memset(&scan, 0, sizeof(al_btree_scan_t));
+	ret = al_btree_remove_node(&btree, &scan, indexs[1]);
+	ASSERT_PANIC(ret != -1, "Add node failed");
+
+	al_btree_scan_merge(&count_scan, &scan);
+
+	for (int i = 0; i < AL_BTREE_LEVEL_NUM; i++) {
+		_al_btree_verify_alloc(&btree, &count_scan, i, 0, AL_BTREE_STATUS_EMPTY);
+	}
+
+	index_count = 0;
+	al_level = AL_BTREE_MAX_LEVEL;
+	for (int i = 0; i < AL_TEST_LEVEL_5_NUM_ALLOC; i++) {
+		memset(&scan, 0, sizeof(al_btree_scan_t));
+		indexs[index_count] = al_btree_add_node(&btree, &scan, al_level);
+		ASSERT_PANIC(indexs[index_count]!= -1, "Add node failed");
+		al_btree_scan_merge(&count_scan, &scan);
+		
+		if (i != AL_TEST_LEVEL_5_NUM_ALLOC - 1)
+			_al_btree_verify_alloc(&btree, &count_scan, al_level, i + 1, AL_BTREE_STATUS_PARTIAL);
+
+		index_count++;
+	}
+
+	for (int i = 0; i < AL_BTREE_LEVEL_NUM; i++)  {
+		_al_btree_verify_alloc(&btree, &count_scan, i, 1 << i, AL_BTREE_STATUS_FULL);
+	}
 	
-	printf("---BTREE TEST END---\n");
-
+	DEBUG_DATA_BINARY("AL_BTREE BUF[0]=", *(uint32_t*)(&btree));
+	DEBUG_DATA_BINARY("AL_BTREE BUF[1]=", ((uint32_t*)&btree)[1]);
+	
+	DEBUG("-----AL BTREE TEST END");
 }
 
 void _pool_test()
@@ -341,7 +446,7 @@ void _pool_test()
 			ASSERT(0);
 		}
 	}
-	DEBUG_DATA("pool.buckets[0].array_list=", pool.buckets[0].btree.list);
+	DEBUG_DATA("pool.buckets[0].array_list=", pool.buckets[0].btree);
 
 }
 
@@ -357,6 +462,162 @@ void _string_test()
 	printf(str);
 
 }
+
+void _kalloc_validate_alloc(uint8_t *addr, uint64_t expected, uint8_t expected_level, size_t expected_size)
+{	
+	DEBUG_DATA("Validating addr=", addr);
+	uint8_t al_level;
+	size_t alloc_size;
+	unsigned int bucket_level;
+	//DEBUG_DATA("validating alloc at addr=", addr);
+	kalloc_header_t * header = (kalloc_header_t*)(addr - sizeof(kalloc_header_t));
+	size_t val_size;
+	kalloc_memnode_t * memnode = kalloc_get_memnode_from_addr(addr);
+	ASSERT_PANIC(memnode, "Could not find memnode, bad addr");
+
+	kalloc_small_bucket_t * small_bucket = kalloc_get_small_bucket_from_addr(memnode, addr);
+	
+	if (small_bucket)  {
+		ASSERT_PANIC(header->magic == KALLOC_MAGIC, "!!!Header does not equal magic value");
+		ASSERT_PANIC(header->size <= KALLOC_PAGE_BUCKET_MIN_BLOCK_SIZE, "Alloc size not in correct range");
+		al_level = kalloc_size_to_bucket_level(header->size);
+		DEBUG_DATA_DIGIT("Expected level =", expected_level);
+		DEBUG_DATA_DIGIT("Found level =", al_level);
+		ASSERT_PANIC(al_level == expected_level, "Levels do not match");
+		alloc_size = header->size;
+		val_size = header->size - sizeof(kalloc_header_t);
+		ASSERT_PANIC(val_size == expected_size, "Expected size not equal");
+	} else {
+		al_level = kalloc_get_al_level_from_addr(addr);
+		DEBUG_DATA_DIGIT("Expected level =", expected_level);
+		DEBUG_DATA_DIGIT("Found level =", al_level);
+		ASSERT_PANIC(al_level == expected_level, "Levels do not match");
+		alloc_size = kalloc_bucket_level_to_size(al_level);
+		val_size = expected_size;
+	}
+
+	unsigned int vals_equal = 1;
+	uint64_t addr_count = (uint64_t)addr;
+	for (int i = 0; i < val_size; i+= sizeof(uint64_t)) {
+		if (*(uint64_t*)(addr_count + i) != expected) {
+			vals_equal == 0;
+			break;
+		}
+	}
+
+	ASSERT_PANIC(vals_equal, "!!!Alloc expectes does not match");
+}
+
+void _kalloc_test()
+{
+	#define KALLOC_TEST_PAGE_NUM 16
+	#define KALLOC_TEST_NUM ((PAGE_SIZE * KALLOC_TEST_PAGE_NUM )/8)
+	#define KALLOC_TEST_LEVEL_PAGE_NUM (1 + KALLOC_TEST_NUM/PAGE_SIZE)
+	#define KALLOC_TEST_ALLOC_WEIGHT 2
+	#define KALLOC_TEST_SMALL_ALLOC_WEIGHT 5
+	#define KALLOC_TEST_LEVEL_UPPER_BOUND 2
+	#define KALLOC_TEST_SIZE_OFFSET 32
+
+	DEBUG("KALLOC TEST_START");
+	DEBUG_DATA("KALLOC_TEST_NUM=", KALLOC_TEST_NUM);
+
+	uint64_t * vals = mm_earlypage_alloc(KALLOC_TEST_PAGE_NUM);
+	uint64_t ** addrs = mm_earlypage_alloc(KALLOC_TEST_PAGE_NUM);
+	uint8_t * levels = mm_earlypage_alloc(KALLOC_TEST_LEVEL_PAGE_NUM);
+	size_t * sizes = mm_earlypage_alloc(KALLOC_TEST_PAGE_NUM);
+	memset(levels, 0, KALLOC_TEST_LEVEL_PAGE_NUM);
+	int ret = 0;
+	
+	unsigned int free = 0;
+	unsigned int alloc = 0;
+
+	uint64_t max_allocs[KALLOC_BUCKET_LEVEL_NUM];
+	memset(max_allocs, 0, sizeof(max_allocs));
+	uint64_t curr_allocs[KALLOC_BUCKET_LEVEL_NUM];
+	memset(curr_allocs, 0, sizeof(curr_allocs));
+	uint64_t small_bucket_allocs[KALLOC_BUCKET_LEVEL_NUM];
+	memset(small_bucket_allocs, 0, sizeof(small_bucket_allocs));
+
+	unsigned int level_allocs[KALLOC_BUCKET_LEVEL_NUM];
+	memset(level_allocs, 0, sizeof(level_allocs));
+	memset(vals, 0, KALLOC_TEST_PAGE_NUM * PAGE_SIZE);
+	
+	for (int i = 0; i < KALLOC_TEST_NUM; i++) {
+		vals[i] = rand_prng();
+	}
+
+	for (int i = 0; i < KALLOC_TEST_NUM; i++) {
+		size_t alloc_size;
+		unsigned int alloc_level;
+
+		unsigned int rand = rand_prng() % (KALLOC_TEST_ALLOC_WEIGHT + 1);
+		unsigned int rand_alloc_type = rand_prng() % (KALLOC_TEST_SMALL_ALLOC_WEIGHT + 1);
+		//unsigned int rand_size = ((rand_prng() % KALLOC_BUCKET_MAX_AL_LEVEL) + 1) + KALLOC_SMALL_BUCKET_LEVEL_START;
+		unsigned int rand_size = (rand_prng() % (KALLOC_BUCKET_AL_LEVEL_NUM - KALLOC_TEST_LEVEL_UPPER_BOUND) + KALLOC_TEST_LEVEL_UPPER_BOUND);
+		DEBUG_DATA_DIGIT("Kalloc test i=", i);
+
+		if (rand < KALLOC_TEST_ALLOC_WEIGHT) {
+			if (rand_alloc_type < KALLOC_TEST_SMALL_ALLOC_WEIGHT) {
+				rand_size = rand_size + KALLOC_SMALL_BUCKET_LEVEL_START;
+				alloc_size = kalloc_bucket_level_to_size(rand_size) - KALLOC_TEST_SIZE_OFFSET;
+			} else {
+				alloc_size = kalloc_bucket_level_to_size(rand_size);
+			}
+
+			DEBUG_DATA_DIGIT("----------------ALLOC OF SIZE=", alloc_size);
+			addrs[alloc] = kalloc_alloc(alloc_size, 0);
+			ASSERT_PANIC(addrs[alloc] != NULL, "!!!alloc failed");
+			sizes[alloc] = alloc_size;
+			for (int i = 0; i < alloc_size; i+= sizeof(uint64_t)) {
+				*(uint64_t*)((uint64_t)addrs[alloc] + i) = vals[alloc];
+			}
+
+			/*
+			if (rand_size == KALLOC_SMALL_BUCKET_LEVEL_START) {
+				alloc_level = 5;
+			} else if (rand_size > KALLOC_SMALL_BUCKET_LEVEL_START) {
+				alloc_level = rand_size - 1;
+			} else {
+				alloc_level = rand_size;
+			} */
+
+			levels[alloc] = rand_size;
+			level_allocs[rand_size]++;
+			alloc++;
+		} else if (alloc > free) {
+			DEBUG("----------------FREE");
+			_kalloc_validate_alloc(addrs[free], vals[free], levels[free], sizes[free]);
+			ret = kalloc_free(addrs[free], 0);
+			ASSERT_PANIC(ret == 0, "!!!free failed");
+			free++;
+		}
+	}
+
+	// Free the remaining allocs
+	for (int i = free; i < alloc; i++) {
+		_kalloc_validate_alloc(addrs[free], vals[free], levels[free], sizes[free]);
+		ret = kalloc_free(addrs[free], 0);
+		ASSERT_PANIC(ret == 0, "!!!free failed");
+		free++;
+	}
+
+	for (int i = 0; i < KALLOC_BUCKET_LEVEL_NUM; i++) {
+		DEBUG_FUNC_DIGIT("Totals allocs at level level=", i);
+		DEBUG_FUNC_DIGIT("Total allocs=", level_allocs[i]);
+	}
+
+	// Get the actual totals vs theoretical totals to make sure everything is actually free
+	kalloc_get_total_allocs(curr_allocs, max_allocs, small_bucket_allocs);
+	for (int i = 0; i < KALLOC_BUCKET_LEVEL_NUM; i++) {
+		DEBUG_FUNC_DIGIT("Totals vs maxs level i=", i);
+		DEBUG_FUNC_DIGIT("Curr_allocs[i]=", curr_allocs[i]);
+		DEBUG_FUNC_DIGIT("Max_allocs[i]=", max_allocs[i]);
+		DEBUG_FUNC_DIGIT("Small bucket allocs[i]= ", small_bucket_allocs[i]);
+	}
+
+	DEBUG("--KALLOC TEST DONE");
+}
+
 void kernel_main(uint64_t dtb_ptr32, uint64_t x1, uint64_t x2, uint64_t x3)
 {
 	uint32_t mem_size;
@@ -364,10 +625,11 @@ void kernel_main(uint64_t dtb_ptr32, uint64_t x1, uint64_t x2, uint64_t x3)
 	uint8_t *page_p;
 	int r;
 
+	_zero_mem();
 	uart_init();
 
+	_print_linker_addrs();
 	_print_processor_features();
-	_zero_mem();
 
 	atomic_add(&atomic_r, 1);
 	ASSERT(atomic_r == 1);
@@ -387,12 +649,16 @@ void kernel_main(uint64_t dtb_ptr32, uint64_t x1, uint64_t x2, uint64_t x3)
 
 	_ll_test();
 	_math_test();
-	//_al_btree_test();
+	_al_btree_test();
 	_string_test();
 	_pool_test();
+	kalloc_init((uint64_t)__earlypage_end);
+	_kalloc_test();
 	//printf("==IRQ INIT==\n");
 	//irq_init();
 	//mmu_init();
+
+
 	
 	lock_spinlock(&uart_lock);
 
