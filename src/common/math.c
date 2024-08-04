@@ -4,6 +4,7 @@
 #include <kernel/printf.h>
 #include <kernel/uart.h>
 #include <common/assert.h>
+#include <common/bits.h>
 
 // NUM cannot be 0
 unsigned int math_log2_64(uint64_t num)
@@ -41,4 +42,11 @@ unsigned int math_is_power2_64(uint64_t num)
     // We shouldnt reach here
     ASSERT(0);
     return 1;
+}
+
+unsigned int math_align_power2_64(uint64_t num)
+{
+    unsigned int msb = bits_msb_index_64(num);
+
+    return 1 << msb;
 }
