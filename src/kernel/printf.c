@@ -23,7 +23,7 @@ static char *convert(unsigned int num, int base)
 	return ptr;
 }
 
-int printf(char *s)
+int printf(const char *s)
 {
     if  (!uart_isready()) 
         return -1;
@@ -35,7 +35,7 @@ int printf(char *s)
     return 0;
 }
 
-int printfdigit(char *s, unsigned int data)
+int printfdigit(const char *s, unsigned int data)
 {
      if  (!uart_isready()) 
         return -1;
@@ -46,7 +46,7 @@ int printfdigit(char *s, unsigned int data)
 }
 
 
-int printfdata(char *s, uint64_t data)
+int printfdata(const char *s, uint64_t data)
 {
      if  (!uart_isready()) 
         return -1;
@@ -58,7 +58,7 @@ int printfdata(char *s, uint64_t data)
     return 0;   
 }
 
-int printfbinary(char *s, uint32_t data)
+int printfbinary(const char *s, uint32_t data)
 {
     uint32_t bits = 1 << 31;
     uint32_t d;
