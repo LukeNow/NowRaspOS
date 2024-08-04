@@ -1,6 +1,7 @@
 #ifndef __ASSERT_H
 #define __ASSERT_H 
 
+#include <common/common.h>
 #include <kernel/printf.h>
 #include <kernel/uart.h>
 
@@ -16,6 +17,8 @@
 #define DEBUG_FUNC_DIGIT(MSG, DATA) do { printf(__FUNCTION__); printf(": "); printf(MSG); printfdigit(" ", DATA);} while (0)
 #define ASSERT(X) do { if (!(X))  {printf("!!!Assertion failed at "); PRINTF_DEBUG_HEADER; printf("\n"); } }while(0)
 #define ASSERT_PANIC(X, MSG) do { ASSERT((X)); if (!(X)){ DEBUG(MSG); CYCLE_INFINITE;} } while(0)
+#define DEBUG_THROW(MSG) do { ASSERT(0); DEBUG(MSG); } while(0)
+#define DEBUG_PANIC(MSG) ASSERT_PANIC(0, MSG)
 
 #endif
 
