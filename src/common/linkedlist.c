@@ -1,3 +1,5 @@
+#include <stddef.h>
+#include <stdint.h>
 #include <common/linkedlist.h>
 #include <common/assert.h>
 #include <kernel/uart.h>
@@ -148,7 +150,7 @@ int ll_insert_node(ll_node_t * root, ll_node_t * last, ll_node_t * node)
         return 1;
     }
 
-    if (ret = ll_node_exists(root, last)) {
+    if (ret = ll_node_exists(root, last)) { // TOGGLE THIS AS DEBUG
         ASSERT(0); // Throw an assert here so we catch stuff we didnt mean to look up
         return ret;
     }
@@ -175,7 +177,7 @@ int ll_delete_node(ll_node_t * root, ll_node_t * node)
     if ((unsigned int)root->data == 0)
         return 1;
 
-    if (ret = ll_node_exists(root, node)) {
+    if (ret = ll_node_exists(root, node)) { // TOGGLE THIS AS DEBUG
         ASSERT(0); // Again throw an assert here to catch if we wanted to delete something that isnt in the list
         return ret;
     }
@@ -230,6 +232,79 @@ int ll_push_list(ll_node_t * root, ll_node_t * node)
     root->data = ((unsigned int)root->data) + 1;
 
     return ret;
+}
+
+ll_node_t * ll_peek_first_list(ll_node_t * root)
+{   
+    // Root data is empty so the list is empty
+    if (root->next == root)
+        return NULL;
+
+    return root->next;
+}
+
+ll_node_t * ll_peek_last_list(ll_node_t * root)
+{   
+    // Root data is empty so the list is empty
+    if (!root->data)
+        return NULL;
+
+    return root->next;
+}
+
+/* Match the first occurence of a node with the data element. */
+ll_node_t * ll_search_data(ll_node_t * root, void * data)
+{   
+    ll_node_t * node_p;
+    LL_ITERATE_LIST(root, node_p) {
+        if (node_p->data == data)
+            return node_p;
+    }
+
+    return NULL;
+}
+
+unsigned int ll_list_size(ll_node_t * root)
+{
+    return (unsigned int )root->data;
+}
+
+unsigned int ll_is_empty(ll_node_t * root)
+{   
+    if (!root->data) {
+        ASSERT_PANIC(root->next == root, "Root size is 0 but node does not point to self");
+        return 1;
+    }
+
+    return 0;
+}
+
+int ll_delete_list_data(ll_node_t * root, void * data)
+{
+    ll_node_t * p;
+    LL_ITERATE_LIST(root, p) {
+        if (p->data == data) {
+            return ll_delete_node(root, p);
+        }
+    }
+
+    return 1;
+}
+
+ll_node_t * ll_search_list_index(ll_node_t * root, unsigned int index)
+{   
+    ll_node_t * p;
+    unsigned int count = 0;
+
+    LL_ITERATE_LIST(root, p) {
+        if (count == index) {
+            return p;
+        }
+
+        count++;
+    }
+
+    return NULL;
 }
 
 int ll_append_list_index(ll_node_t * root, ll_node_t * node, int index)

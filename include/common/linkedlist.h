@@ -4,14 +4,18 @@
 #include <stdint.h>
 
 /* Circular doubly linked list.
- * For the root node data represents an unsigned int for the size of the list.
- */
-
+ * For the root node data represents an unsigned int for the size of the list. */
 typedef struct linked_list_node_t {
     void * next;
     void * last;
     void * data;
 } ll_node_t;
+
+typedef struct linked_list_head_t {
+    ll_node_t * next;
+    ll_node_t * last;
+    uint64_t count;
+} ll_head_t;
 
 #define LL_ROOT_ZERO(X) do {(X).next = &X; (X).last = &X; (X).data = NULL;} while(0)
 #define LL_ROOT_INIT(X) static ll_node_t (X)
@@ -23,6 +27,12 @@ int ll_delete_node(ll_node_t * root, ll_node_t * node);
 int ll_insert_node(ll_node_t * root, ll_node_t * last, ll_node_t * node);
 ll_node_t * ll_pop_list(ll_node_t * root);
 int ll_push_list(ll_node_t * root, ll_node_t * node);
+ll_node_t * ll_peek_first_list(ll_node_t * root);
+ll_node_t * ll_peek_last_list(ll_node_t * root);
+ll_node_t * ll_search_data(ll_node_t * root, void * data);
+ll_node_t * ll_search_list_index(ll_node_t * root, unsigned int index);
+int ll_delete_list_data(ll_node_t * root, void * data);
+unsigned int ll_list_size(ll_node_t * root);
 int ll_append_list_index(ll_node_t * root, ll_node_t * node, int index);
 int ll_delete_list_index(ll_node_t * root, int index);
 void ll_traverse_list(ll_node_t * root);
