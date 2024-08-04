@@ -34,7 +34,6 @@ unsigned int al_btree_level_to_index(unsigned int level);
 unsigned int al_btree_level_to_entries_num(unsigned int level);
 unsigned int al_btree_index_to_offset(unsigned int index);
 int al_btree_scan_count(al_btree_t * btree, al_btree_scan_t * scan);
-int al_btree_scan_merge(al_btree_scan_t * count_scan, al_btree_scan_t * alloc_scan);
 int al_btree_remove_node(al_btree_t * btree, al_btree_scan_t * scan, unsigned int index);
 int al_btree_atomic_remove_node(al_btree_t * btree, al_btree_scan_t * scan, unsigned int index);
 int al_btree_add_node(al_btree_t * btree, al_btree_scan_t * scan, int level);
