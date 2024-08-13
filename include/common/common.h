@@ -28,5 +28,9 @@ typedef uint32_t flags_t;
 #define RANGES_OVERLAP_EXCLUSIVE(RANGE1_START, RANGE1_SIZE, RANGE2_START, RANGE2_SIZE) \
 		(((RANGE1_START) > ((RANGE2_START) + (RANGE2_SIZE))) && (((RANGE1_START) + (RANGE1_SIZE)) > (RANGE2_START)))
 
+#define GET32(GET_ADDR) (*((uint32_t *)(GET_ADDR)))
+#define GET64(GET_ADDR) (*((uint64_t *)(GET_ADDR)))
+#define PUT32(TO_ADDR, VAL) (*((uint32_t *)(TO_ADDR)) = (VAL))
+#define PUT64(TO_ADDR, VAL) (*((uint64 *)(TO_ADDR)) = (VAL))
 
 #endif
