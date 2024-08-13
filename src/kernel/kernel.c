@@ -25,6 +25,7 @@
 #include <kernel/kalloc.h>
 #include <kernel/kalloc_page.h>
 #include <kernel/kern_tests.h>
+#include <kernel/timer.h>
 
 #define CORE_NUM 4
 
@@ -195,14 +196,13 @@ void kernel_main(uint64_t dtb_ptr32, uint64_t x1, uint64_t x2, uint64_t x3)
 
 	printf("Hello from main core!\n");
 
-	//lock_spinunlock(&uart_lock);
-
 	mm_early_init();
 
-	//linked_list_test();
-	//math_test();
-	//irq_init();
 	//mmu_init();
+
+	irq_init();
+	timer_init();
+	timer_enable();
 
 
 	_get_mem_size(&mem_base_addr, &mem_size, MBOX_TAG_ARMMEM);
@@ -217,15 +217,18 @@ void kernel_main(uint64_t dtb_ptr32, uint64_t x1, uint64_t x2, uint64_t x3)
 	reserve_mem_regions();
 
 	kalloc_init();
-	kalloc_test();
+	//kalloc_test();
 
 	//kalloc_slab_test();
 	//kalloc_cache_test();
 	//mm_test();
 
+	DEBUG("--- KERNEL END ---");
 
 	while (1) {
-		CYCLE_WAIT(10);
+
+		//DEBUG_DATA_DIGIT("Timer num=", timer_get_time());
+		CYCLE_WAIT(1000);
 		if (lock_trylock(&uart_lock) != 0)
 			continue;
 
