@@ -3,15 +3,19 @@
 #include <kernel/irq.h>
 #include <kernel/printf.h>
 #include <kernel/uart.h>
-#include <kernel/sysreg.h>
-
-extern void _irq_init();
+#include <kernel/gpio.h>
+#include <common/assert.h>
+#include <common/common.h>
+#include <kernel/timer.h>
 
 void irq_init() 
 {
+    DEBUG("--- IRQ INIT START ---");
 
-    //*((uint64_t *) ENABLE_IRQS_1) = SYSTEM_TIMER_IRQ_1;
-    _irq_init();
+    irq_vector_init();
+    irq_enable();
+
+    DEBUG("--- IRQ INIT DONE---");
 }
 
 void handle_invalid_irq(int irq_entry)
@@ -23,7 +27,13 @@ void handle_invalid_irq(int irq_entry)
 }
 
 void handle_irq()
-{
-    int pending = *((uint64_t*)IRQ_PENDING_1);
-    printf("IRQ EL1 FIRED\n");
+{   
+    unsigned int irq = GET32(IRQ_PENDING_1);
+	switch (irq) {
+		case (SYSTEM_TIMER_IRQ_1):
+			timer_handle_irq();
+			break;
+		default:
+			DEBUG_DATA_DIGIT("--Invalid irq fired, irq=", irq);
+	}
 }

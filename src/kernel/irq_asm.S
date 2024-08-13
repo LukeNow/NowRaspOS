@@ -65,28 +65,21 @@
 .extern handle_invalid_irq
 .extern handle_irq
 
+.global irq_vector_init
 irq_vector_init:
   adr     x0, vectors                             // load VBAR_EL1 with 
   msr     vbar_el1, x0                            // vector table address
   ret
 
-enable_irq:
+.global irq_enable
+irq_enable:
   msr     daifclr, #2
   ret
 
-
-disable_irq:
+.global irq_disable
+irq_disable:
   msr     daifset, #2
   ret
-
-.global _irq_init
-_irq_init:
-     adr     x0, vectors                             // load VBAR_EL1 with 
-    msr     vbar_el1, x0  
-     msr     daifclr, #2
-
-    ret
-
 
 /*
  * Exception vectors.
@@ -113,7 +106,6 @@ vectors:
   ventry  fiq_invalid_el0_32                      // FIQ 32-bit EL0
   ventry  error_invalid_el0_32                    // Error 32-bit EL0
 
-.align 2
 sync_invalid_el1t:
   handle_invalid_entry  0
 
@@ -131,8 +123,7 @@ sync_invalid_el1h:
 
 el1_irq:
   kernel_entry
-  ldr     x0, handle_irq
-  blr     x0
+  bl handle_irq
   kernel_exit
 
 fiq_invalid_el1h:
