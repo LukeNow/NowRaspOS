@@ -1,7 +1,5 @@
 // AArch64 mode
  
-#include "../../include/kernel/sysreg.h"
-
 // To keep this in the first portion of the binary.
 .section ".text.boot"
  

@@ -2,7 +2,6 @@
 #include <stddef.h>
 #include <kernel/mbox.h>
 #include <kernel/gpio.h>
-#include <kernel/sysreg.h>
 #include <common/common.h>
 
 #define VIDEOCORE_MBOX  (MMIO_BASE + 0x0000B880)
