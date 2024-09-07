@@ -12,6 +12,7 @@ typedef uint64_t bits_t;
 #define BITS(X) (UINT64_MAX >> (64 - X))
 #define BIT_ALIGN(X, Y) ((X) & BITS(Y))
 #define IS_BIT_ALIGNED(X,Y) (BIT_ALIGN(X, Y) ? 0 : 1)
+#define BITS_INVERT(X, Y) ((X) ^ (Y))
 
 unsigned int bits_msb_index_64(uint64_t bits);
 unsigned int bits_msb_index_32(uint32_t bits);
