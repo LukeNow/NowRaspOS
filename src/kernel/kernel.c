@@ -26,10 +26,9 @@
 #include <kernel/kalloc_page.h>
 #include <kernel/kern_tests.h>
 #include <kernel/timer.h>
+#include <kernel/kalloc_page.h>
 
 #define CORE_NUM 4
-
-#define KERN_RESERVE_AREA_INDEX 3
 
 ATOMIC_UINT32(core_ready);
 
@@ -169,14 +168,17 @@ void reserve_mem_regions()
 {
 	int ret = 0;
 	uint64_t start_addr = 0;
-	for (int i = 0; i < KERN_RESERVE_AREA_INDEX; i++) {
-		ret = mm_reserve_pages(start_addr, MM_MAX_ORDER);
+	for (int i = 0; i < MM_RESERVE_AREA_INDEX; i++) {
+		ret = kalloc_page_reserve_pages(start_addr, MM_MAX_ORDER, 0);
 		ASSERT_PANIC(!ret, "MM reserve pages failed");
 		start_addr += MM_MEMORDER_TO_PAGES(MM_MAX_ORDER) * PAGE_SIZE;
-		ret = mm_reserve_pages(start_addr, MM_MAX_ORDER);
+		//DEBUG_DATA_DIGIT("Startaddr=", start_addr);
+		ret = kalloc_page_reserve_pages(start_addr, MM_MAX_ORDER, 0);
 		ASSERT_PANIC(!ret, "MM reserve pages failed");
 		start_addr += MM_MEMORDER_TO_PAGES(MM_MAX_ORDER) * PAGE_SIZE;
 	}
+
+	DEBUG("--- Initial mem regions reserved---");
 }
 
 void kernel_main(uint64_t dtb_ptr32, uint64_t x1, uint64_t x2, uint64_t x3)
@@ -204,7 +206,6 @@ void kernel_main(uint64_t dtb_ptr32, uint64_t x1, uint64_t x2, uint64_t x3)
 	timer_init();
 	timer_enable();
 
-
 	_get_mem_size(&mem_base_addr, &mem_size, MBOX_TAG_ARMMEM);
 	_get_mem_size(&vc_base_addr, &vc_mem_size, MBOX_TAG_VCMEM);
 
@@ -216,12 +217,14 @@ void kernel_main(uint64_t dtb_ptr32, uint64_t x1, uint64_t x2, uint64_t x3)
 	mm_init(mem_size, 0);
 	reserve_mem_regions();
 
-	kalloc_init();
+	//kalloc_init();
 	//kalloc_test();
 
 	//kalloc_slab_test();
 	//kalloc_cache_test();
-	//mm_test();
+	mm_test();
+	kalloc_init();
+	kalloc_test();
 
 	DEBUG("--- KERNEL END ---");
 
