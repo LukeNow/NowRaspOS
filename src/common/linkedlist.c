@@ -43,6 +43,10 @@ static int _ll_append_node(ll_node_t * node, ll_node_t * next)
         return 1;
     }
 
+    if (next->next == next || next->last == next) {
+        DEBUG_PANIC("Next node is self refrencing");
+    }
+
     next->next = node->next;
     next->last = node;
     
@@ -67,7 +71,7 @@ static int _ll_delete_node(ll_node_t * node, ll_node_t * unused __attribute__((u
 
     // This is the root node and only node in the list
     if (last == node || next == node) {
-        ASSERT(0);
+        DEBUG_PANIC("Deleting the last node.");
         return 1;
     }
 
@@ -122,22 +126,23 @@ int ll_node_exists(ll_node_t * root, ll_node_t * node)
     
     if (!root || !node) {
         ASSERT(0);
-        return 1;
+        return 0;
     }
 
-    if (root == node) // Do we treat the root as a valid data node? Probably since its circular
-        return 0;
+    if (root == node) {
+        DEBUG_PANIC("Checking if root exists.");
+    } // Do we treat the root as a valid data node? Probably since its circular
 
     // Size is 0
     if ((unsigned int)root->data == 0)
-        return 1;
+        return 0;
 
     LL_ITERATE_LIST(root, p) {
         if (p == node)
-            return 0;
+            return 1;
     }
     
-    return 1;
+    return 0;
 }
 
 int ll_insert_node(ll_node_t * root, ll_node_t * last, ll_node_t * node)
@@ -177,8 +182,8 @@ int ll_delete_node(ll_node_t * root, ll_node_t * node)
     if ((unsigned int)root->data == 0)
         return 1;
 
-    if (ret = ll_node_exists(root, node)) { // TOGGLE THIS AS DEBUG
-        ASSERT(0); // Again throw an assert here to catch if we wanted to delete something that isnt in the list
+    if (!(ret = ll_node_exists(root, node))) { // TOGGLE THIS AS DEBUG
+        DEBUG_PANIC("The node does not exist."); // Again throw an assert here to catch if we wanted to delete something that isnt in the list
         return ret;
     }
 
@@ -219,9 +224,14 @@ int ll_push_list(ll_node_t * root, ll_node_t * node)
 {
     int ret = 0;
 
-    if (!root || !node) {
+    if (!root || !node || root == node) {
         ASSERT(0);
         return 1;
+    }
+
+    if (ret = ll_node_exists(root, node)) { // TOGGLE THIS AS DEBUG
+        ASSERT(0); // Again throw an assert here to catch if we wanted to delete something that isnt in the list
+        return ret;
     }
 
     // This is valid even in the case of just the root
@@ -348,14 +358,10 @@ void ll_traverse_list(ll_node_t * root)
 
 
 
-    printf("LL: Starting list traversal\n");
-    printf("LL LIST SIZE ");
-    uart_hex(((unsigned int)root->data));
-    printf("\n");
+    DEBUG("LL: Starting list traversal\n");
+    DEBUG_DATA_DIGIT("LL LIST SIZE ", (unsigned int)root->data);
     
     LL_ITERATE_LIST(root, p) {
-        printf("LL DATA: ");
-        uart_hex(((unsigned int)p->data));
-        printf("\n");
+        DEBUG_DATA("Data: ", ((unsigned int)p->data));
     }
 }
