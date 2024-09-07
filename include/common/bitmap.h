@@ -1,4 +1,4 @@
-#ifndef  __BITMAP_H
+#ifndef __BITMAP_H
 #define __BITMAP_H
 
 #include <stddef.h>
@@ -15,5 +15,4 @@ void bitmap_flip(bitmap_t * bitmap, unsigned int index);
 unsigned int bitmap_get(bitmap_t * bitmap, unsigned int index);
 void bitmap_free(bitmap_t * bitmap, unsigned int index);
 
-
-#endif __BITMAP_H
+#endif
