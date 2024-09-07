@@ -8,6 +8,7 @@
 #include <kernel/lock.h>
 #include <kernel/kalloc_cache.h>
 #include <kernel/kalloc_slab.h>
+#include <kernel/kalloc_page.h>
 #include <common/bits.h>
 
 /* We reserve bits from the 16th bit of memory alloc flags to define a standard flag interface. 
@@ -18,6 +19,6 @@ int kalloc_init();
 void * kalloc_alloc(size_t size, flags_t flags);
 int kalloc_free(void * object, flags_t flags);
 void * kalloc_pages(unsigned int page_num, flags_t flags);
-int kalloc_free_pages(void * page_ptr, unsigned int page_num, flags_t flags);
+int kalloc_free_pages(void * page_ptr, flags_t flags);
 
 #endif

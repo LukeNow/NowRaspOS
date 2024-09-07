@@ -11,6 +11,7 @@
 #include <common/string.h>
 #include <common/bits.h>
 #include <common/math.h>
+#include <kernel/kalloc_page.h>
 
 #define KALLOC_ENTRY_NUM 8
 #define KALLOC_MAX_ENTRY_ALLOC 2048
@@ -60,16 +61,6 @@ static int get_entry_num_from_cache(kalloc_cache_t * cache)
     return -1;
 }
 
-static unsigned int get_page_num_from_addr(void * addr)
-{
-    unsigned int page_index = PAGE_INDEX_FROM_PTR(addr);
-    unsigned int page_num = (unsigned int)mm_get_page_obj_ptr(page_index);
-
-    ASSERT_PANIC(page_num, "Kalloc page num from addr is invalid.");
-
-    return page_num;
-}
-
 static kalloc_cache_t * get_cache_from_addr(void * addr)
 {
     kalloc_cache_t * cache;
@@ -89,7 +80,7 @@ static unsigned int cache_expand(kalloc_cache_t * cache, unsigned int entry_num)
     kalloc_slab_t * slab;
     void * slab_mem;
 
-    slab_mem = mm_alloc_pages(mm_pages_to_memorder(entries[entry_num].slab_init_page_num));
+    slab_mem = kalloc_page_alloc_pages(mm_pages_to_memorder(entries[entry_num].slab_init_page_num), 0);
     ASSERT_PANIC(slab_mem, "Slab mem alloc failed");
 
     slab = kalloc_cache_add_slab_pages(entries[entry_num].cache, slab_mem, 
@@ -110,7 +101,6 @@ static unsigned int check_cache_needs_expand(kalloc_cache_t * cache)
 
 void * kalloc_pages(unsigned int page_num, flags_t flags)
 {
-    unsigned int page_index;
     void * ptr = NULL;
 
     ASSERT_PANIC(page_num, "Kalloc_pages page num is 0");
@@ -119,28 +109,24 @@ void * kalloc_pages(unsigned int page_num, flags_t flags)
 
     lock_spinlock(&lock);
 
-    ptr = (void *)mm_alloc_pages(mm_pages_to_memorder(page_num));
+    ptr = (void *)kalloc_page_alloc_pages(mm_pages_to_memorder(page_num), flags);
     if (!ptr) {
         DEBUG_PANIC("Kalloc pages alloc pages failed.");
         goto kalloc_pages_exit;
     }
-
-    page_index = (uint64_t)ptr / PAGE_SIZE;
-    // Store the page num so we can recover page num when freeing this addr
-    mm_link_page_obj_ptr(page_index, (uint64_t)page_num);
 
 kalloc_pages_exit:
     lock_spinunlock(&lock);
     return ptr;
 }
 
-int kalloc_free_pages(void * page_ptr, unsigned int page_num, flags_t flags)
+int kalloc_free_pages(void * page_ptr, flags_t flags)
 {
     int ret = 0;
 
     lock_spinlock(&lock);
 
-    ret = mm_free_pages((uint64_t)page_ptr, mm_pages_to_memorder(page_num));
+    ret = kalloc_page_free_pages((uint64_t)page_ptr, flags);
 
     lock_spinunlock(&lock);
     
@@ -211,9 +197,7 @@ int kalloc_free(void * obj, flags_t flags)
             DEBUG_PANIC("Suspected page pointer is not aligned.");
         }
 
-        page_num = get_page_num_from_addr(obj);
-
-        return kalloc_free_pages(obj, page_num, flags);
+        return kalloc_page_free_pages((uint64_t)obj, flags);
     }
 
     lock_spinlock(&lock);

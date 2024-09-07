@@ -10,6 +10,7 @@
 #include <kernel/printf.h>
 #include <kernel/kalloc.h>
 #include <common/assert.h>
+#include <kernel/kalloc_page.h>
 
 void linked_list_test()
 {
@@ -435,8 +436,10 @@ void _validate_mm_free(uint64_t addr, unsigned int memorder, MM_TEST_DATA_TYPE e
 	mm_global_area_t * global_area = mm_global_area();
 	mm_page_t * pages = global_area->global_pages;
 
+	DEBUG_DATA_DIGIT("---Checking memorder=", memorder);
+	DEBUG_DATA_DIGIT("---Checking page_num=", page_num);
 	for (int i = 0; i < page_num; i++) {
-		ASSERT_PANIC(!mm_page_is_valid(page_index_start + i), "Page is not valid)");
+		ASSERT_PANIC(!mm_page_is_valid(page_index_start + i), "Page is valid)");
 	}
 
 	uint64_t end_addr = addr + (page_num * PAGE_SIZE);
@@ -456,13 +459,13 @@ void mm_test()
 	#define MM_TEST_FREE_WEIGHT 3
 	#define MM_TEST_ALLOC_WEIGHT (4 + MM_TEST_FREE_WEIGHT)
 	#define MM_TEST_MEMORDER_RANGE 8
-	#define MM_TEST_START_AREA_INDEX 3
 
 	#define MM_TEST_DATA_PAGES 16
 	#define MM_TEST_NUM 1024  * 2 * 2 * 2
 	#define MM_TEST_NULL_ADDR ((uint64_t)~0)
 
 	uint64_t found_addr;
+	kalloc_buddy_t * buddy;
 	uint64_t reserve_addr = 0;
 	int ret = 0;
 	unsigned int free = 0;
@@ -474,16 +477,6 @@ void mm_test()
 
 	uint64_t free_reserve_addr = MM_TEST_NULL_ADDR;
 	uint64_t free_reserve_memorder = 0;
-	/* reserve the mem area up to start_area_index. */
-	uint64_t start_addr = 0;
-	for (int i = 0; i < MM_TEST_START_AREA_INDEX; i++) {
-		ret = mm_reserve_pages(start_addr, MM_MAX_ORDER);
-		ASSERT_PANIC(!ret, "MM reserve pages failed");
-		start_addr += MM_MEMORDER_TO_PAGES(MM_MAX_ORDER) * PAGE_SIZE;
-		ret = mm_reserve_pages(start_addr, MM_MAX_ORDER);
-		ASSERT_PANIC(!ret, "MM reserve pages failed");
-		start_addr += MM_MEMORDER_TO_PAGES(MM_MAX_ORDER) * PAGE_SIZE;
-	}
 
 	unsigned int val_num = (MM_TEST_DATA_PAGES * PAGE_SIZE) / sizeof(MM_TEST_DATA_TYPE);
 	for (int i = 0; i < val_num; i++)  {
@@ -491,19 +484,22 @@ void mm_test()
 	}
 
 	for (int i = 0; i < MM_TEST_NUM; i++) {
-
 		int rand_op = rand_prng() % (MM_TEST_ALLOC_WEIGHT);
 		int rand_memorder = rand_prng() % (MM_TEST_MEMORDER_RANGE + 1);
+		//int rand_memorder = 1;
 
 		if (rand_op < MM_TEST_FREE_WEIGHT && alloc > free) {
 			DEBUG("MM TEST FREE");
 			
 			int rand_free = rand_prng() % (alloc + 1);
-
+			//continue;
 			if (!ptrs[rand_free])
 				continue;
 
-			ret = mm_free_pages(ptrs[rand_free], memorders[rand_free]);
+			buddy = kalloc_get_buddy_from_addr(ptrs[rand_free]);
+			ASSERT_PANIC(buddy->buddy_memorder == memorders[rand_free], "Buddy is not the past memorder");
+
+			ret = kalloc_page_free_pages(ptrs[rand_free], 0);
 			ASSERT_PANIC(!ret, "mm_free_pages failed");
 			_validate_mm_free((uint64_t)ptrs[rand_free], memorders[rand_free], vals[rand_free]);
 			
@@ -526,7 +522,7 @@ void mm_test()
 			if (alloc_op) {
 				DEBUG("MM TEST ALLOC");
 				DEBUG_FUNC("MM alloc at memorder=", rand_memorder);
-				ptrs[alloc] = mm_alloc_pages(rand_memorder);
+				ptrs[alloc] = kalloc_page_alloc_pages(rand_memorder, 0);
 				ASSERT_PANIC(ptrs[alloc], "MM alloc pages failed");
 				memorders[alloc] = rand_memorder;
 
@@ -541,7 +537,7 @@ void mm_test()
 				DEBUG_FUNC_DIGIT("ALLOC memorder=", rand_memorder);
 
 				_validate_and_set_mm_alloc((uint64_t)ptrs[alloc], rand_memorder, vals[alloc]);
-			} else {
+			} else {			
 				DEBUG("MM RESERVE");
 				if (free_reserve_addr == MM_TEST_NULL_ADDR)
 					continue;
@@ -549,7 +545,7 @@ void mm_test()
 				DEBUG_FUNC("MM reserve at addr=", free_reserve_addr);
 				DEBUG_FUNC("MM reserve at memorder=", free_reserve_memorder);
 				
-				ret = mm_reserve_pages(free_reserve_addr, free_reserve_memorder);
+				ret = kalloc_page_reserve_pages(free_reserve_addr, free_reserve_memorder, 0);
 				ASSERT_PANIC(!ret, "MM reserve failed");
 
 				ptrs[alloc] = (MM_TEST_DATA_TYPE*)free_reserve_addr;
@@ -569,15 +565,23 @@ void mm_test()
 	for (unsigned int i = 0; i < alloc; i++) {
 		if (!ptrs[i])
 			continue;
-
-		ret = mm_free_pages(ptrs[i], memorders[i]);
+		buddy = kalloc_get_buddy_from_addr(ptrs[i]);
+		ASSERT_PANIC(buddy->buddy_memorder == memorders[i], "Buddy is not the past memorder");
+		ret = kalloc_page_free_pages(ptrs[i], 0);
 		ASSERT_PANIC(!ret, "mm_free_pages failed");
 		_validate_mm_free((uint64_t)ptrs[i], memorders[i], vals[i]);
 	}
 
-	for (int i = MM_TEST_START_AREA_INDEX; i < mm_global_area()->area_count; i++) {
-		ASSERT_PANIC(mm_global_area()->global_areas[i].free_page_num == (MM_AREA_SIZE / PAGE_SIZE), 
-					"MM area still has not freed pages");
+	for (int i = MM_RESERVE_AREA_INDEX; i < mm_global_area()->area_count; i++) {
+		if (mm_global_area()->global_areas[i].free_page_num != (MM_AREA_SIZE / PAGE_SIZE)){
+			DEBUG_DATA_DIGIT("Curr_area pages=",mm_global_area()->global_areas[i].free_page_num);
+			DEBUG_DATA_DIGIT("Total pages=",(MM_AREA_SIZE / PAGE_SIZE));
+			DEBUG_PANIC("Free page num is not total freed");
+		}
+
+		if (ll_list_size(&mm_global_area()->global_areas[i].free_buddy_list[MM_MAX_ORDER]) != 2) {
+			DEBUG_PANIC("MM MAX ORDER free nodes are not 2 after completly freeing");
+		}
 	}
 
 	DEBUG("--- MM TEST DONE ----");
