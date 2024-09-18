@@ -36,7 +36,7 @@ void uart_init()
     *GPPUDCLK0 = 0; // Now disable the clk assert on the pins that they are programed
     *AUX_MU_CNTL = 3; // Finally enable miniuart TX/RX
 
-    aarch64_mb();
+    aarch64_dsb();
     uart_ready = 1;
 }
 
