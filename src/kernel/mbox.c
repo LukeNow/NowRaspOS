@@ -18,13 +18,13 @@
 static size_t mbox_get_tag_len(mbox_prop_tag_t tag)
 {
     switch (tag) {
-        case MBOX_TAG_BOARD_MODEL:
-        case MBOX_TAG_BOARD_REV:
+        case MAILBOX_TAG_GET_BOARD_MODEL:
+        case MAILBOX_TAG_GET_BOARD_REVISION:
         return 4;
 
-        case MBOX_TAG_GETSERIAL:
-        case MBOX_TAG_ARMMEM:
-        case MBOX_TAG_VCMEM:
+        case MAILBOX_TAG_GET_BOARD_SERIAL:
+        case MAILBOX_TAG_GET_ARM_MEMORY:
+        case MAILBOX_TAG_GET_VC_MEMORY:
         return 8;
     }
 }
