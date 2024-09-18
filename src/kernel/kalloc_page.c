@@ -124,9 +124,9 @@ static kalloc_buddy_t * get_buddy_parent(kalloc_buddy_t * buddy)
 
 static kalloc_buddy_t * get_buddy_child(kalloc_buddy_t * buddy, unsigned int child)
 {   
-    ASSERT_PANIC(buddy->buddy_memorder != 0, "Getting child of memorder 0 buddy.");
-
     unsigned int index = kalloc_get_buddy_page_index(buddy);
+
+    ASSERT_PANIC(buddy->buddy_memorder != 0, "Getting child of memorder 0 buddy.");
 
     if (child == RIGHT_BUDDY) {
         return kalloc_get_buddy_from_page_index(index + MM_MEMORDER_TO_PAGES(buddy->buddy_memorder - 1));
@@ -291,7 +291,7 @@ static unsigned int get_buddy_free_page(kalloc_buddy_t * buddy)
 
 static uint64_t assign_buddy_page(mm_area_t * area, kalloc_buddy_t * buddy, unsigned int assign_page_index)
 {
-    ASSERT_PANIC(kalloc_get_buddy_from_page_index(assign_page_index) == buddy, "assing page index does not map to buddy.");
+    ASSERT_PANIC(kalloc_get_buddy_from_page_index(assign_page_index) == buddy, "assigning page index does not map to buddy.");
     ASSERT_PANIC(buddy->buddy_memorder == 0, "Assign page Buddy is not memorder 0.");
 
     if (mm_page_is_valid(assign_page_index)) {
@@ -299,6 +299,7 @@ static uint64_t assign_buddy_page(mm_area_t * area, kalloc_buddy_t * buddy, unsi
         return 0;
     }
 
+    // If the other page of this buddy is already reserved, remove this buddy from free list since it is full now
     if (mm_page_is_valid(assign_page_index ^ 1)) {
         remove_buddy_list(area, buddy);
     }
@@ -310,7 +311,7 @@ static uint64_t assign_buddy_page(mm_area_t * area, kalloc_buddy_t * buddy, unsi
 
 static void free_buddy_page(mm_area_t * area, kalloc_buddy_t * buddy, unsigned int free_page_index)
 {
-    ASSERT_PANIC(kalloc_get_buddy_from_page_index(free_page_index) == buddy, "assing page index does not map to buddy.");
+    ASSERT_PANIC(kalloc_get_buddy_from_page_index(free_page_index) == buddy, "assigning page index does not map to buddy.");
     ASSERT_PANIC(buddy->buddy_memorder == 0, "Assign page Buddy is not memorder 0.");
 
     if (!mm_page_is_valid(free_page_index)) {
@@ -376,6 +377,7 @@ int kalloc_page_free_pages(uint64_t addr, flags_t flags)
     kalloc_buddy_t * buddy = kalloc_get_buddy_from_page_index(page_index);
     unsigned int memorder_pages =  MM_MEMORDER_TO_PAGES(buddy->buddy_memorder);
 
+    ASSERT_PANIC(area, "Area from addr not found. ");
     ASSERT_PANIC(mm_is_initialized(), "Mm is not initialized.");
     ASSERT_PANIC(IS_ALIGNED(addr, memorder_pages * PAGE_SIZE), "mm_free_pages addr is not aligned to memorder");
 
@@ -402,7 +404,6 @@ int kalloc_page_reserve_pages(uint64_t addr, unsigned int memorder, flags_t flag
     unsigned int found_memorder;
     unsigned int page_index = addr / PAGE_SIZE;
     mm_area_t * area = mm_area_from_addr(addr);
-
 
     ASSERT_PANIC(area, "Free area not found from addr");
     ASSERT_PANIC(mm_is_initialized(), "Mm is not initialized.");
