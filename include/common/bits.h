@@ -9,7 +9,7 @@ typedef uint64_t bits_t;
 
 #define BITS_PER_BYTE 8
 
-#define BITS(X) (UINT64_MAX >> (64 - X))
+#define BITS(X) (UINT64_MAX >> (64 - (X)))
 #define BIT_ALIGN(X, Y) ((X) & BITS(Y))
 #define IS_BIT_ALIGNED(X,Y) (BIT_ALIGN(X, Y) ? 0 : 1)
 #define BITS_INVERT(X, Y) ((X) ^ (Y))
