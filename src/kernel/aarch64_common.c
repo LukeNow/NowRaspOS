@@ -15,20 +15,31 @@ void aarch64_sev()
 
 /* Full memory barrier. 
  * Does not stall execution. */
-void aarch64_mb()
+void aarch64_dmb_inner()
 {
     asm volatile ("dmb  ish");
 }
 
+void aarch64_dmb()
+{
+    asm volatile ("dmb  sy");
+}
+
 /* Data sync barrier
  * Will stall until all writes are completed. */
-void aarch64_syncb()
+void aarch64_dsb_inner()
 {
     asm volatile ("dsb  ish");
 }
 
-/* Flushes instruction prefech cache. */
-void aarch64_instrsyncb()
+void aarch64_dsb()
 {
-    asm volatile ("isb  sy");
+    asm volatile ("dsb  sy");
+}
+
+/* Flushes instruction prefech cache for full system. */
+
+void aarch64_isb()
+{
+    asm volatile ("isb");
 }
