@@ -181,6 +181,24 @@ void reserve_mem_regions()
 	DEBUG("--- Initial mem regions reserved---");
 }
 
+#define UPPER_BITS_MASK (0xFFFF000000000000) //Check the upper bit addr?
+
+static void mmu_test()
+{
+	uint32_t s = 1;
+
+	uint32_t *s_upper = (uint32_t *)((uint64_t)(&s) + MMU_UPPER_ADDRESS);
+
+	DEBUG_DATA("Upper bits=", MMU_UPPER_ADDRESS);
+	DEBUG_DATA("s_upper=", s_upper);
+	DEBUG_DATA_DIGIT("Upper adder1=", *s_upper);
+
+	*s_upper = *s_upper + 1;
+
+	DEBUG_DATA_DIGIT("Upper adder2=", *s_upper);
+}
+
+
 void kernel_main(uint64_t dtb_ptr32, uint64_t x1, uint64_t x2, uint64_t x3)
 {
 	uint32_t vc_mem_size;
@@ -200,19 +218,23 @@ void kernel_main(uint64_t dtb_ptr32, uint64_t x1, uint64_t x2, uint64_t x3)
 
 	mm_early_init();
 
-	//mmu_init();
+	_get_mem_size(&mem_base_addr, &mem_size, MAILBOX_TAG_GET_ARM_MEMORY);
+	_get_mem_size(&vc_base_addr, &vc_mem_size, MAILBOX_TAG_GET_VC_MEMORY);
 
 	irq_init();
-	timer_init();
-	timer_enable();
-
-	_get_mem_size(&mem_base_addr, &mem_size, MBOX_TAG_ARMMEM);
-	_get_mem_size(&vc_base_addr, &vc_mem_size, MBOX_TAG_VCMEM);
 
 	DEBUG_DATA("Mem base addr=", mem_base_addr);
 	DEBUG_DATA("MEMSIZE in pages?=", mem_size);
 	DEBUG_DATA("VC mem base addr=", vc_base_addr);
 	DEBUG_DATA("VC memsize=", vc_mem_size);
+
+	mmu_init(mem_size, vc_base_addr, vc_mem_size);
+
+	mmu_test();
+	DEBUG_PANIC("EOK REACHED");
+
+	timer_init();
+	timer_enable();
 
 	mm_init(mem_size, 0);
 	reserve_mem_regions();
