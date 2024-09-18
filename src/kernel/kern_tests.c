@@ -105,35 +105,6 @@ void math_test()
 	printf("MATH TEST DONE\n");
 }
 
-/*
-typedef struct struct_s {
-	int mem1;
-	int mem2;
-	uint64_t mem3;
-	uint8_t mem4;
-	uint32_t mem5;
-} struct_s;
-
-void test_struct_p(void)
-{
-	DEBUG("----- test struct p macro----");
-	struct_s s;
-	s.mem1 = 1;
-	s.mem2 = 2;
-	s.mem3 = 3;
-	s.mem4 = 4;
-	s.mem5 = 5;
-
-	int * mem2_p = &s.mem2;
-
-	struct_s * s_p = STRUCT_P(mem2_p, struct_s, mem2);
-
-	ASSERT_PANIC(s_p->mem2 == 2, "Mem 2 !=2");
-	ASSERT_PANIC(s_p->mem5 == 5, "Not equal");
-
-}
-*/
-
 int _kalloc_slab_verify(kalloc_slab_t * slab, unsigned int index, uint32_t expected)
 {
 	uint32_t * ptr = (uint32_t*)((uint8_t *)slab->mem_ptr + slab->obj_size * index);
@@ -586,27 +557,6 @@ void mm_test()
 
 	DEBUG("--- MM TEST DONE ----");
 }
-
-/*
-static void mmu_test()
-{
-	uint32_t s = 1;
-
-	uint32_t *s_upper = (uint32_t *)((uint64_t)(&s) + UPPER_ADDR);
-
-	printf("LETS TRY\n");
-	uart_hex(&s);
-	printf("\n");
-
-	printf("UPPER ADDR\n");
-	uart_hex(((uint64_t)(&s) + UPPER_ADDR));
-	printf("\n");
-	*s_upper = 2;
-	printf("\n");
-	printf("DONE!\n");
-	lock_spinunlock(&uart_lock);
-}
-*/
 
 void _set_kalloc_alloc(void * mem_start, size_t size, uint32_t val)
 {
