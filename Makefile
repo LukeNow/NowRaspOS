@@ -60,7 +60,7 @@ run: clean build
 debug:
 	$(GDB) $(ELF)
 
-debugrun: build gdbinit
+debugrun: clean build gdbinit
 	qemu-system-aarch64 -M raspi3b -no-reboot $(QEMU_FLAGS) -kernel $(IMG) $(QEMU_DBG_FLAGS) 
 
 .PHONY: gdbinit
