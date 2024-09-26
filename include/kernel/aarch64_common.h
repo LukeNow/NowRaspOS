@@ -10,7 +10,6 @@ void aarch64_dmb_inner();
 void aarch64_dmb();
 void aarch64_dsb_inner();
 void aarch64_dsb();
-void aarch64_isb_inner();
 void aarch64_isb();
 
 
