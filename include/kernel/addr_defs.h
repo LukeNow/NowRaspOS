@@ -1,22 +1,24 @@
 #ifndef __ADDR_DEFS_H
 #define __ADDR_DEFS_H
 
-extern void __start();
-extern void __end();
-extern void __data_start();
-extern void __data_end();
-extern void __rodata_start();
-extern void __rodata_end();
-extern void __text_start();
-extern void __stackpage_start();
-extern void __stackpage_end();
-extern void __earlypage_start();
-extern void __earlypage_end();
-extern void __bss_start();
-extern void __bss_end();
-extern void __early_page_start();
-extern void __early_page_end();
+#define EARLY_TEXT __attribute__ ((section (".early_text")))
+#define EARLY_DATA(VAR) VAR __attribute__ ((section (".early_data")))
 
-extern void _start();
+EARLY_DATA(extern void __start());
+EARLY_DATA(extern void __end());
+EARLY_DATA(extern void __data_start());
+EARLY_DATA(extern void __data_end());
+EARLY_DATA(extern void __rodata_start());
+EARLY_DATA(extern void __rodata_end());
+EARLY_DATA(extern void __text_start());
+EARLY_DATA(extern void __stackpage_start());
+EARLY_DATA(extern void __stackpage_end());
+EARLY_DATA(extern void __earlypage_start());
+EARLY_DATA(extern void __earlypage_end());
+EARLY_DATA(extern void __bss_start());
+EARLY_DATA(extern void __bss_end());
+EARLY_DATA(extern void __early_page_start());
+EARLY_DATA(extern void __early_page_end());
+EARLY_DATA(extern void _start());
 
 #endif
