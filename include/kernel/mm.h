@@ -7,6 +7,7 @@
 #include <common/bits.h>
 #include <common/linkedlist.h>
 #include <kernel/lock.h>
+#include <kernel/early_mm.h>
 
 /* The number of Areas we pre reserve that mostly are our instruction pages and early memory. s*/
 #define MM_RESERVE_AREA_INDEX 3

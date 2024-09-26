@@ -5,17 +5,18 @@
 #include <stddef.h>
 #include <common/bits.h>
 
-#define MMU_VA_SIZE_BITS 39
-#define MMU_UPPER_ADDRESS (BITS(64 - MMU_VA_SIZE_BITS) << MMU_VA_SIZE_BITS)
-
 #define MT_DEVICE_NGNRNE	0
 #define MT_DEVICE_NGNRE		1
 #define MT_DEVICE_GRE		2
 #define MT_NORMAL_NC		3
 #define MT_NORMAL		    4
 
+#define PAGE_SIZE 4096
 #define PAGE_OFF 12
 #define PAGE_MASK (PAGE_SIZE - 1)
+#define MMU_LEVEL1_BLOCKSIZE (1 << 21)
+#define MMU_VA_SIZE_BITS 39
+#define MMU_UPPER_ADDRESS (BITS(64 - MMU_VA_SIZE_BITS) << MMU_VA_SIZE_BITS)
 
 #define PT_ADDR (BITS(36) << 12)
 #define PT_SET_ADDR(ADDR) (((ADDR) & PAGE_MASK) << 12)
@@ -34,13 +35,34 @@
 #define PT_NO_TRANSLATE_LOWER_EL (1 << 60)
 #define PT_SECURE (1 << 63)
 
+#define ENTRIES_PER_PAGE 512
+
+#define L2_BIT_OFF 12
+#define L1_BIT_OFF 21
+#define L0_BIT_OFF 30
+
+#define L2_MASK (BITS(9) << L2_BIT_OFF)
+#define L1_MASK (BITS(9) << L1_BIT_OFF)
+#define L0_MASK (BITS(9) << L0_BIT_OFF)
+
+#define L2_ENTRY(ADDR) ((((ADDR) & L2_MASK) >> L2_BIT_OFF) % ENTRIES_PER_PAGE)
+#define L1_ENTRY(ADDR) ((((ADDR) & L1_MASK) >> L1_BIT_OFF) % ENTRIES_PER_PAGE)
+#define L0_ENTRY(ADDR) (((ADDR) & L0_MASK) >> L0_BIT_OFF)
+
+#define PAGE_NORMALIZED_ADDR(ADDR) ((ADDR) / PAGE_SIZE)
+#define BLOCK_NORMALIED_ADDR(ADDR) ((ADDR) / LEVEL1_BLOCKSIZE)
+
+#define ADDR_MASK (BITS(39) & ~PAGE_MASK)
+#define PAGE_INDEX_FROM_PTR(PTR) ((uint64_t)(PTR) / PAGE_SIZE)
+
+
 #define MAIR1_VAL ((0x00ul << (MT_DEVICE_NGNRNE * 8)) |\
                  (0x04ul << (MT_DEVICE_NGNRE * 8)) |\
 				 (0x0cul << (MT_DEVICE_GRE * 8)) |\
                  (0x44ul << (MT_NORMAL_NC * 8)) |\
 				 (0xfful << (MT_NORMAL * 8)) )
 
-#define SCTLREL1_VAL ( (0xC00800) |		/* set mandatory reserved bits */\
+#define SCTLREL1_VAL ((0xC00800) |		/* set mandatory reserved bits */\
 					  (1 << 12)  |      /* I, Instruction cache enable. This is an enable bit for instruction caches at EL0 and EL1 */\
 					  (1 << 4)   |		/* SA0, tack Alignment Check Enable for EL0 */\
 					  (1 << 3)   |		/* SA, Stack Alignment Check Enable */\
@@ -63,13 +85,12 @@
 					 (0b0LL  << 7)   |  /* EPD0  ... Translation table walk disable for translations using TTBR0_EL1  0 = walk, 1 = generate fault */\
 					 (25LL   << 0) ) 	/* T0SZ=25 (512G)  ... The region size is 2 POWER (64-T0SZ) bytes */
 
-
+/*
 typedef union {
 	struct {
 		uint64_t EntryType : 2;				// @0-1		1 for a block table, 3 for a page table
 		    
-			/* These are only valid on BLOCK DESCRIPTOR */
-			uint64_t MemAttr : 4;			// @2-5
+			uint64_t MemAttr : 4;			// @2-5 only valid on block descriptors
 			enum {
 				STAGE2_S2AP_NOREAD_EL0 = 1,	//			No read access for EL0
 				STAGE2_S2AP_NO_WRITE = 2,	//			No write access
@@ -100,6 +121,15 @@ typedef union {
 	};
 	uint64_t Raw64;							// @0-63	Raw access to all 64 bits via this union
 } VMSAv8_64_DESCRIPTOR;
+*/
+
+void align_early_mem(size_t size);
+uint8_t * early_data_alloc(size_t size);
+uint8_t * early_page_data_alloc(unsigned int page_num);
+void *mm_earlypage_alloc(int num_pages);
+int mm_earlypage_shrink(int num_pages);
+int mm_early_is_intialized();
+int mm_early_init();
 
 int mmu_init(uint32_t phy_mem_size, uint32_t vc_mem_start, uint32_t vc_mem_size);
 

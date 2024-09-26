@@ -6,6 +6,7 @@
 // Make _start global.
 .global _start
 
+.extern early_init
 // 
 _start:
 
@@ -102,6 +103,8 @@ el1_entry:  // cpu id == 0
     add     x1, x1, #4096
     mov     sp, x1
     
+    bl early_init
+
     // clear bss
     ldr     x1, =__bss_start
     ldr     w2, =__bss_size

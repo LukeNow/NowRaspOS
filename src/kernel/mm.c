@@ -2,127 +2,20 @@
 #include <stddef.h>
 #include <common/assert.h>
 #include <kernel/addr_defs.h>
-#include <kernel/kern_defs.h>
 #include <kernel/uart.h>
 #include <kernel/lock.h>
 #include <kernel/mm.h>
 #include <kernel/kalloc_cache.h>
 #include <kernel/kalloc_page.h>
+#include <kernel/early_mm.h>
 #include <common/math.h>
+#include <kernel/mmu.h>
 
 DEFINE_SPINLOCK(mm_lock);
-DEFINE_SPINLOCK(early_mm_lock);
 
 static mm_global_area_t global_area;
 
-static int early_page_num = 0;
-static uint8_t *early_page_start;
-static uint8_t *early_page_end;
-static uint8_t *early_page_curr;
-static uint8_t *mm_data_top;
-
-static int early_mm_initialized = 0;
 static int mm_initialized = 0;
-
-/* Early page/alloc functions. */
-
-static void align_early_mem(size_t size)
-{
-    mm_data_top = ALIGN_UP((uint64_t)mm_data_top, size);
-}
-
-static uint8_t * early_data_alloc(size_t size)
-{   
-    uint8_t * top;
-
-    ASSERT_PANIC(mm_data_top, "MM data top is NULL");
-    
-    top = mm_data_top;
-    mm_data_top += size;
-    align_early_mem(sizeof(uint64_t));
-    memset(top, 0, size);
-
-    return top;
-}
-
-static uint8_t * early_page_data_alloc(unsigned int page_num)
-{
-    align_early_mem(PAGE_SIZE);
-    return early_data_alloc(page_num * PAGE_SIZE);
-}
-
-int mm_early_is_intialized()
-{
-    return early_mm_initialized;
-}
-
-int mm_early_init()
-{
-    uint32_t early_page_size = ((uint64_t) __earlypage_end) - ((uint64_t) __earlypage_start);
-    early_page_num = early_page_size >> PAGE_BIT_OFF;
-    early_page_start = ((uint64_t) __earlypage_start);
-    early_page_end = ((uint64_t) __earlypage_end);
-    early_page_curr = early_page_start;
-
-    mm_data_top = (char *)early_page_end;
-
-    ASSERT(IS_ALIGNED((uint64_t)early_page_start, PAGE_SIZE));
-    ASSERT(IS_ALIGNED((uint64_t)early_page_end, PAGE_SIZE));
-    
-    early_mm_initialized = 1;
-
-    DEBUG("--- Early MM initialized ---");
-
-    return 0;
-}
-
-void *mm_earlypage_alloc(int num_pages)
-{
-    ASSERT_PANIC(mm_early_is_intialized(), "MM early is not initialized.");
-
-    lock_spinlock(&early_mm_lock);
-
-    uint8_t *start = early_page_curr;
-    uint8_t *curr = early_page_curr;
-
-    for  (int i = 0; i < num_pages; i++)  {
-        if (curr + PAGE_SIZE > early_page_end) {
-            ASSERT(0);
-            return NULL;
-        }
-        curr += PAGE_SIZE;
-    }
-
-    early_page_curr = curr;
-    lock_spinunlock(&early_mm_lock);
-
-    return start;
-}
-
-int mm_earlypage_shrink(int num_pages)
-{
-    ASSERT_PANIC(mm_early_is_intialized(), "MM early is not initialized.");
-
-    lock_spinlock(&early_mm_lock);
-
-    uint8_t *start = early_page_curr;
-    uint8_t *curr = early_page_curr;
-
-    for  (int i = 0; i < num_pages; i++)  {
-        if (curr - PAGE_SIZE < early_page_start) {
-            ASSERT(0);
-            return 1;
-        }
-        curr -= PAGE_SIZE;
-    }
-
-    early_page_curr = curr;
-    lock_spinunlock(&early_mm_lock);
-
-    return 0;
-}
-
-/* MM page alloc functions. */
 
 int mm_is_initialized()
 {
@@ -293,6 +186,9 @@ int mm_init(size_t mem_size, uint64_t *mem_start_addr)
 
     DEBUG("---MM INIT START--");
 
+
+    ASSERT_PANIC(mm_early_is_intialized(), "Early mm is not initialized");
+
     DEBUG_FUNC_DIGIT("-Global area page num=", num_pages);
     DEBUG_FUNC_DIGIT("-Global area pages struct size pages=", global_pages_size_pages_num);
     DEBUG_FUNC_DIGIT("-Global area sub area num=", area_num);
@@ -309,20 +205,23 @@ int mm_init(size_t mem_size, uint64_t *mem_start_addr)
         ll_root_init(&global_area.free_areas_list[i]);
     }
 
+    DEBUG("Allocating structs");
     /* Init all the global pages over the mem space. */
     global_area.global_pages = (mm_page_t *)early_page_data_alloc(global_pages_size_pages_num);
+    DEBUG_DATA("global pages=", global_area.global_pages);
+    DEBUG_DATA_DIGIT("Size=", global_pages_size_pages_num);
     global_area.page_count = num_pages;
-    memset(global_area.global_pages, 0, global_pages_size_pages_num);
-    
+    memset(global_area.global_pages, 0, global_pages_size_pages_num * sizeof(mm_page_t));
+     DEBUG("Allocating structs2");
     /* Init the areas over the memory space. */
     align_early_mem(PAGE_SIZE);
     global_area.global_areas = (mm_area_t *)early_data_alloc(sizeof(mm_area_t) * area_num);
     memset(global_area.global_areas, 0, sizeof(mm_area_t) * area_num);
-
+  DEBUG("Allocating structs3");
     align_early_mem(PAGE_SIZE);
     global_area.global_buddies = (kalloc_buddy_t *)early_data_alloc((num_pages / 2) * sizeof(kalloc_buddy_t));
     memset(global_area.global_buddies, 0, (num_pages / 2) * sizeof(kalloc_buddy_t));
-
+  DEBUG("Allocating structs4");
     for (unsigned int i = 0; i < area_num; i++) {
         ret = mm_area_init(&global_area, &global_area.global_areas[i], (i * MM_AREA_SIZE)/PAGE_SIZE);
         if (ret) {

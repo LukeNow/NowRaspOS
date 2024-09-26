@@ -11,7 +11,6 @@
 #include <kernel/atomic.h>
 #include <kernel/aarch64_common.h>
 #include <kernel/addr_defs.h>
-#include <kernel/kern_defs.h>
 #include <kernel/irq.h>
 #include <kernel/mm.h>
 #include <common/arraylist_btree.h>
@@ -34,6 +33,7 @@ ATOMIC_UINT32(core_ready);
 
 DEFINE_SPINLOCK(uart_lock);
 
+/*
 static void _zero_mem()
 {
 	uint64_t early_page_end = ((uint64_t)__earlypage_end);
@@ -53,7 +53,7 @@ static void _zero_mem()
 	for (uint64_t i = early_page_start; i < early_page_end; i += sizeof(uint64_t)) {
 		*(uint64_t*)i = 0;
 	}
-}
+} */
 
 static void _print_processor_features()
 {
@@ -84,16 +84,6 @@ static void _print_processor_features()
     } else {
         printf("4KB granulatory not supported\n"); 
     }
-}
-
-void _print_linker_addrs()
-{
-	printfdata(".text start=", (uint64_t)__text_start);
-	printfdata(".rodata start=", (uint64_t)__rodata_start);
-	printfdata(".data start=", (uint64_t)__data_start);
-	printfdata(".bss start=", (uint64_t)__bss_start);
-	printfdata(".stackpage start=", (uint64_t)__stackpage_start);
-	printfdata("earlypage start=", (uint64_t)__earlypage_start);
 }
 
 void kernel_child_main(uint64_t mpidr_el1)
@@ -127,7 +117,7 @@ static void _start_cores()
 		*(uint64_t*)wake_addr = (uint64_t)&_start;
 		wake_addr += 8; 
 	}
-	aarch64_syncb();
+	aarch64_dsb();
 	/* wake the cores that have been sleeping*/
 	aarch64_sev();
 
@@ -181,14 +171,16 @@ void reserve_mem_regions()
 	DEBUG("--- Initial mem regions reserved---");
 }
 
-#define UPPER_BITS_MASK (0xFFFF000000000000) //Check the upper bit addr?
+uint64_t upper_data;
 
 static void mmu_test()
 {
 	uint32_t s = 1;
 
+	upper_data = 1;
 	uint32_t *s_upper = (uint32_t *)((uint64_t)(&s) + MMU_UPPER_ADDRESS);
 
+	DEBUG_DATA("Upper data addr=", &upper_data);
 	DEBUG_DATA("Upper bits=", MMU_UPPER_ADDRESS);
 	DEBUG_DATA("s_upper=", s_upper);
 	DEBUG_DATA_DIGIT("Upper adder1=", *s_upper);
@@ -208,30 +200,27 @@ void kernel_main(uint64_t dtb_ptr32, uint64_t x1, uint64_t x2, uint64_t x3)
 	uint8_t *page_p;
 	int r;
 
-	_zero_mem();
+	//_zero_mem();
 	uart_init();
-
-	_print_linker_addrs();
-	_print_processor_features();
 
 	printf("Hello from main core!\n");
 
-	mm_early_init();
+	//mm_early_init();
 
 	_get_mem_size(&mem_base_addr, &mem_size, MAILBOX_TAG_GET_ARM_MEMORY);
 	_get_mem_size(&vc_base_addr, &vc_mem_size, MAILBOX_TAG_GET_VC_MEMORY);
 
 	irq_init();
 
-	DEBUG_DATA("Mem base addr=", mem_base_addr);
-	DEBUG_DATA("MEMSIZE in pages?=", mem_size);
-	DEBUG_DATA("VC mem base addr=", vc_base_addr);
-	DEBUG_DATA("VC memsize=", vc_mem_size);
+	//DEBUG_DATA("Mem base addr=", mem_base_addr);
+	//DEBUG_DATA("MEMSIZE in pages?=", mem_size);
+	//DEBUG_DATA("VC mem base addr=", vc_base_addr);
+	//DEBUG_DATA("VC memsize=", vc_mem_size);
 
-	mmu_init(mem_size, vc_base_addr, vc_mem_size);
+	//mmu_init(mem_size, vc_base_addr, vc_mem_size);
 
 	mmu_test();
-	DEBUG_PANIC("EOK REACHED");
+	//DEBUG_PANIC("EOK REACHED");
 
 	timer_init();
 	timer_enable();
