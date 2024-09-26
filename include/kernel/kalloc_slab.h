@@ -3,7 +3,7 @@
 
 #include <common/common.h>
 #include <common/linkedlist.h>
-#include <kernel/kern_defs.h>
+#include <kernel/mmu.h>
 
 /* kalloc_slab flags */
 /* This slab was externally allocated outside of the page allocator or should not be freed until done explicitly. */
@@ -15,8 +15,8 @@
 #define KALLOC_SLAB_CURR_LIST_P(slab) ((ll_node_t *)((slab)->node.data))
 
 #define KALLOC_SLAB_VERIFY(slab) ASSERT_PANIC(slab, "Slab ptr is null"); \
-                        ASSERT_PANIC(((uint64_t)slab->mem_ptr & PAGE_MASK) == ((uint64_t)slab  & PAGE_MASK), "Slab memptr is not in slab ptr range"); \
-                        ASSERT_PANIC(slab->obj_size, "Slab obj size nonzer0");
+                        ASSERT_PANIC(slab->obj_size, "Slab obj size nonzer0"); \
+                        ASSERT_PANIC(((uint64_t)slab->mem_ptr & PAGE_MASK) == ((uint64_t)slab  & PAGE_MASK), "Slab memptr is not in slab ptr range");
 
 /* Very similar to the slab alloc linux uses. With the free indexs being the buf_ctl scheme linux also uses for updating
  * and getting free_indexs. */
