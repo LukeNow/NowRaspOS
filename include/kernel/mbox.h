@@ -1,6 +1,8 @@
 #ifndef __MBOX_H
 #define __MBOX_H
 
+#include <kernel/gpio.h>
+
 #define MBOX_REQUEST 0
 
 /* channels */
@@ -13,6 +15,18 @@
 #define MBOX_CH_TOUCH   6
 #define MBOX_CH_COUNT   7
 #define MBOX_CH_PROP    8
+
+
+#define VIDEOCORE_MBOX  (MMIO_BASE + 0x0000B880)
+#define MBOX_READ       ((volatile uint32_t*)(VIDEOCORE_MBOX + 0x0))
+#define MBOX_POLL       ((volatile uint32_t*)(VIDEOCORE_MBOX + 0x10))
+#define MBOX_SENDER     ((volatile uint32_t*)(VIDEOCORE_MBOX + 0x14))
+#define MBOX_STATUS     ((volatile uint32_t*)(VIDEOCORE_MBOX + 0x18))
+#define MBOX_CONFIG     ((volatile uint32_t*)(VIDEOCORE_MBOX + 0x1C))
+#define MBOX_WRITE      ((volatile uint32_t*)(VIDEOCORE_MBOX + 0x20))
+#define MBOX_RESPONSE   0x80000000
+#define MBOX_FULL       0x80000000
+#define MBOX_EMPTY      0x40000000
 
 
 typedef enum {
