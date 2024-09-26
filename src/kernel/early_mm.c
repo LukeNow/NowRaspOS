@@ -34,7 +34,6 @@ EARLY_TEXT void early_get_mem_size(uint32_t *base_addr, uint32_t *size, mbox_pro
 	*base_addr = 0;
 	*size = 0;
 	
-
     while (1) {
         while (*MBOX_STATUS & MBOX_EMPTY) {
             CYCLE_WAIT(3);
@@ -97,6 +96,7 @@ EARLY_TEXT int mm_earlypage_shrink(int num_pages)
     uint8_t *start = early_page_curr;
     uint8_t *curr = early_page_curr;
 
+    // Account for underflow
     if ((num_pages * PAGE_SIZE) > start || (start - (PAGE_SIZE * num_pages)) < early_page_start)
         return 1;
 
@@ -121,9 +121,6 @@ EARLY_TEXT int mm_early_init()
 
     mm_data_top = (char *)early_page_end;
 
-    //ASSERT(IS_ALIGNED((uint64_t)early_page_start, PAGE_SIZE));
-    //ASSERT(IS_ALIGNED((uint64_t)early_page_end, PAGE_SIZE));
-    
     early_mm_initialized = 1;
 
     return 0;

@@ -25,7 +25,7 @@ EARLY_TEXT static low_map_entry(uint64_t addr, uint64_t attrs)
 
     if (entry_l0 == 0) {
         entry_l1_addr = (uint64_t *)mm_earlypage_alloc(1);
-        //memset(entry_l1_addr, 0, PAGE_SIZE);
+        early_memset(entry_l1_addr, 0, PAGE_SIZE);
         low_l0_entry[l0_index] = PT_SECURE | (uint64_t)entry_l1_addr | PT_ENTRY;
     }
 
