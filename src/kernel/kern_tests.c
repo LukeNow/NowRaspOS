@@ -11,6 +11,7 @@
 #include <kernel/kalloc.h>
 #include <common/assert.h>
 #include <kernel/kalloc_page.h>
+#include <kernel/early_mm.h>
 
 void linked_list_test()
 {

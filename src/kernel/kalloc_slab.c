@@ -4,7 +4,7 @@
 #include <common/assert.h>
 #include <common/string.h>
 #include <kernel/kalloc_slab.h>
-#include <kernel/kern_defs.h>
+#include <kernel/mmu.h>
 
 size_t kalloc_slab_free_list_size(unsigned int obj_num)
 {
@@ -94,8 +94,6 @@ kalloc_slab_t * kalloc_slab_init(kalloc_slab_t * slab, void * mem_ptr, unsigned 
     slab->max_num = num - 1;
     slab->obj_size = obj_size;
     slab->mem_page_num = mem_num_pages;
-
-    // This is the first free index
     
     slab->flags = flags;
 

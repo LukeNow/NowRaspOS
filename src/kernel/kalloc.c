@@ -5,13 +5,13 @@
 #include <common/linkedlist.h>
 #include <kernel/kalloc.h>
 #include <kernel/mm.h>
-#include <kernel/kern_defs.h>
 #include <kernel/lock.h>
 #include <kernel/atomic.h>
 #include <common/string.h>
 #include <common/bits.h>
 #include <common/math.h>
 #include <kernel/kalloc_page.h>
+#include <kernel/mmu.h>
 
 #define KALLOC_ENTRY_NUM 8
 #define KALLOC_MAX_ENTRY_ALLOC 2048

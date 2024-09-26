@@ -4,7 +4,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <common/common.h>
-#include <kernel/kern_defs.h>
 #include <kernel/lock.h>
 #include <kernel/kalloc_cache.h>
 #include <kernel/kalloc_slab.h>

@@ -116,6 +116,7 @@ static kalloc_buddy_t * get_buddy_parent(kalloc_buddy_t * buddy)
     unsigned int page_index = kalloc_get_buddy_page_index(buddy);
     unsigned int sibling_index = kalloc_get_buddy_page_index(sibling);
 
+    // The parent buddy will be the buddy that has the leftmost index
     if (page_index > sibling_index)
         return sibling;
 
@@ -145,11 +146,13 @@ static unsigned int is_buddy_free(kalloc_buddy_t * buddy)
     return mm_pages_are_free(kalloc_get_buddy_page_index(buddy), MM_MEMORDER_TO_PAGES(buddy->buddy_memorder));
 }
 
-static kalloc_buddy_t * get_free_parent(kalloc_buddy_t * buddy)
+/* Get the highest order free ancestor including the given buddy. */
+static kalloc_buddy_t * get_free_ancestor(kalloc_buddy_t * buddy)
 {
     kalloc_buddy_t * parent;
     unsigned int memorder = buddy->buddy_memorder;
 
+    // This is the topmost buddy
     if (memorder == MM_MAX_ORDER)
         return buddy;
 
@@ -162,7 +165,7 @@ static kalloc_buddy_t * get_free_parent(kalloc_buddy_t * buddy)
             return buddy;
 
         buddy = parent;
-        buddy->buddy_memorder;
+        memorder = buddy->buddy_memorder;
     }
 
     return NULL;
@@ -414,8 +417,9 @@ int kalloc_page_reserve_pages(uint64_t addr, unsigned int memorder, flags_t flag
     }
 
     buddy = kalloc_get_buddy_from_page_index(page_index);
-    // Make sure that this buddy we are attempting to reserve is the top most free buddy of this addr
-    buddy = get_free_parent(buddy);
+    // Make sure we get the topmost free ancestor so we can preserve the buddy structure
+    // and split it later to the correct buddy we want to reserve
+    buddy = get_free_ancestor(buddy);
 
     ASSERT_PANIC(buddy, "No free buddy found at given addr");
    
