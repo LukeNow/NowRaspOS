@@ -19,22 +19,24 @@
 #define MM_MAX_INDEX_ORDER (MM_MAX_ORDER + 1)
 #define MM_AREA_SIZE (PAGE_SIZE << (MM_MAX_ORDER + 1)) //8MB
 
-#define MM_AREA_INDEX(ADDR) (ADDR/ MM_AREA_SIZE)
+#define MM_AREA_INDEX(ADDR) ((ADDR)/ MM_AREA_SIZE)
 #define MM_AREA_FROM_ADDR(ADDR) (&mm_global_area()->global_areas[MM_AREA_INDEX(ADDR)])
-#define MM_AREA_STRUCT_INDEX(AREA) (AREA->phys_addr_start / MM_AREA_SIZE)
+#define MM_AREA_STRUCT_INDEX(AREA) ((AREA)->phys_addr_start / MM_AREA_SIZE)
 
 #define MM_MEMORDER_TO_PAGES(MEMORDER) (1 << MEMORDER)
 
-#define MM_MEMORDER_SIZE(MEMORDER) (PAGE_SIZE << MEMORDER)
+#define MM_MEMORDER_SIZE(MEMORDER) (PAGE_SIZE << (MEMORDER))
 #define MM_MEMORDER_MASK(MEMORDER) (~(MM_MEMORDER_SIZE(MEMORDER) - 1))
 
 #define MM_GLOBAL_AREA_INDEX(ADDR) (MM_MEMORDER_INDEX(ADDR, MM_MAX_ORDER + 1))
 #define MM_GLOBAL_PAGE_INDEX(ADDR) (MM_MEMORDER_INDEX(ADDR, 0))
 
-#define MM_MEMORDER_TO_PAGES(MEMORDER) (1 << MEMORDER)
+#define MM_MEMORDER_TO_PAGES(MEMORDER) (1 << (MEMORDER))
 
 #define MM_AREA_FREE_BUDDY(AREA, MEMORDER) (ll_peek_first_list(&AREA->free_buddy_list[MEMORDER]))
 #define MM_GLOBAL_AREA_FREE_AREA(MEMORDER) (ll_peek_first_list(&mm_global_area()->free_areas_list[MEMORDER]))
+
+#define MM_PAGE_VALID (1 << 0)
 
 typedef struct mm_addr_map {
     uint64_t virt_addr;

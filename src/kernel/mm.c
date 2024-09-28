@@ -205,23 +205,20 @@ int mm_init(size_t mem_size, uint64_t *mem_start_addr)
         ll_root_init(&global_area.free_areas_list[i]);
     }
 
-    DEBUG("Allocating structs");
     /* Init all the global pages over the mem space. */
     global_area.global_pages = (mm_page_t *)early_page_data_alloc(global_pages_size_pages_num);
-    DEBUG_DATA("global pages=", global_area.global_pages);
-    DEBUG_DATA_DIGIT("Size=", global_pages_size_pages_num);
     global_area.page_count = num_pages;
     memset(global_area.global_pages, 0, global_pages_size_pages_num * sizeof(mm_page_t));
-     DEBUG("Allocating structs2");
+
     /* Init the areas over the memory space. */
     align_early_mem(PAGE_SIZE);
     global_area.global_areas = (mm_area_t *)early_data_alloc(sizeof(mm_area_t) * area_num);
     memset(global_area.global_areas, 0, sizeof(mm_area_t) * area_num);
-  DEBUG("Allocating structs3");
+
     align_early_mem(PAGE_SIZE);
     global_area.global_buddies = (kalloc_buddy_t *)early_data_alloc((num_pages / 2) * sizeof(kalloc_buddy_t));
     memset(global_area.global_buddies, 0, (num_pages / 2) * sizeof(kalloc_buddy_t));
-  DEBUG("Allocating structs4");
+
     for (unsigned int i = 0; i < area_num; i++) {
         ret = mm_area_init(&global_area, &global_area.global_areas[i], (i * MM_AREA_SIZE)/PAGE_SIZE);
         if (ret) {
