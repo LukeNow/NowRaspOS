@@ -9,8 +9,7 @@
 #include <kernel/kalloc_slab.h>
 #include <kernel/kalloc_cache.h>
 
-
-int _add_remove_cache_list(ll_node_t  * to_cache_list, ll_node_t * from_cache_list, kalloc_slab_t * slab)
+static int add_remove_cache_list(ll_node_t  * to_cache_list, ll_node_t * from_cache_list, kalloc_slab_t * slab)
 {
     KALLOC_SLAB_VERIFY(slab);
 
@@ -33,7 +32,7 @@ int _add_remove_cache_list(ll_node_t  * to_cache_list, ll_node_t * from_cache_li
     return 0;
 }
 
-ll_node_t * _get_curr_slab_list(kalloc_cache_t * cache, kalloc_slab_t * slab)
+static ll_node_t * get_curr_slab_list(kalloc_cache_t * cache, kalloc_slab_t * slab)
 {
     KALLOC_SLAB_VERIFY(slab);
 
@@ -47,7 +46,7 @@ ll_node_t * _get_curr_slab_list(kalloc_cache_t * cache, kalloc_slab_t * slab)
     return curr_list;
 }
 
-kalloc_slab_t * _get_free_slab(kalloc_cache_t * cache)
+static kalloc_slab_t * get_free_slab(kalloc_cache_t * cache)
 {
     kalloc_slab_t * slab;
     ll_node_t * slab_node;
@@ -65,7 +64,7 @@ kalloc_slab_t * _get_free_slab(kalloc_cache_t * cache)
     return slab;
 }
 
-kalloc_slab_t * __get_slab_from_addr(ll_node_t * list, void * obj)
+static kalloc_slab_t * _get_slab_from_addr(ll_node_t * list, void * obj)
 {
     ll_node_t * node_p;
     kalloc_slab_t * slab;
@@ -81,36 +80,35 @@ kalloc_slab_t * __get_slab_from_addr(ll_node_t * list, void * obj)
     return NULL;
 }
 
-kalloc_slab_t * _get_slab_from_addr(kalloc_cache_t * cache, void * obj)
+static kalloc_slab_t * get_slab_from_addr(kalloc_cache_t * cache, void * obj)
 {
     kalloc_slab_t * slab;
 
-    slab = __get_slab_from_addr(&cache->full_list, obj);
+    slab = _get_slab_from_addr(&cache->full_list, obj);
     if (slab) {
         return slab;
     }
 
-    slab = __get_slab_from_addr(&cache->partial_list, obj);
+    slab = _get_slab_from_addr(&cache->partial_list, obj);
     if  (slab) {
         return slab;
     }
 
     // For debugging lets also check if its in the free list, we can disable this part later
-    slab = __get_slab_from_addr(&cache->free_list, obj);
+    slab = _get_slab_from_addr(&cache->free_list, obj);
     ASSERT_PANIC(slab, "Cache obj found in free list");
 
     return NULL;
 }
 
-
-int _check_slab_and_update_list(kalloc_cache_t * cache, kalloc_slab_t * slab)
+static int check_slab_and_update_list(kalloc_cache_t * cache, kalloc_slab_t * slab)
 {
     ll_node_t * to_list, *curr_list;
     
     KALLOC_SLAB_VERIFY(slab);
     ASSERT(cache && slab);
 
-    curr_list = _get_curr_slab_list(cache, slab);
+    curr_list = get_curr_slab_list(cache, slab);
     if (!curr_list) {
         DEBUG("Slab list malformed or not in cache");
         return 1;
@@ -126,7 +124,7 @@ int _check_slab_and_update_list(kalloc_cache_t * cache, kalloc_slab_t * slab)
         return 0;
     }
 
-    if (_add_remove_cache_list(to_list, curr_list, slab)) {
+    if (add_remove_cache_list(to_list, curr_list, slab)) {
         DEBUG_THROW("Swap list failed");
         return 1;
     }
@@ -142,7 +140,7 @@ int kalloc_cache_add_slab(kalloc_cache_t * cache, kalloc_slab_t * slab)
 
     int ret = 0;
 
-    if (_add_remove_cache_list(&cache->free_list, NULL, slab)) {
+    if (add_remove_cache_list(&cache->free_list, NULL, slab)) {
         DEBUG_THROW("Adding cache list failed");
         return 1;
     }
@@ -154,7 +152,7 @@ int kalloc_cache_add_slab(kalloc_cache_t * cache, kalloc_slab_t * slab)
         return ret;
 
     page_index = PAGE_INDEX_FROM_PTR(slab->mem_ptr);
-    for (int i = 0; i < slab->mem_page_num; i++) {
+    for (unsigned int i = 0; i < slab->mem_page_num; i++) {
         mm_link_page_obj_ptr(page_index + i, (void*)cache);
     }
 
@@ -176,9 +174,6 @@ kalloc_slab_t * kalloc_cache_add_slab_pages(kalloc_cache_t * cache, void * page_
     }
 
     KALLOC_SLAB_VERIFY(slab);
-    DEBUG_FUNC("Slab page alloced at page=", page_ptr);
-    DEBUG_FUNC("Slab struct end=", slab->mem_ptr);
-    DEBUG_FUNC("Slab with offset=", ((uint64_t) page_ptr + kalloc_slab_struct_size(slab->max_num, slab->obj_size)));
 
     return slab;
 }
@@ -191,7 +186,7 @@ int kalloc_cache_remove_slab(kalloc_cache_t * cache, kalloc_slab_t * slab)
 
     KALLOC_SLAB_VERIFY(slab);
 
-    curr_list = _get_curr_slab_list(cache, slab);
+    curr_list = get_curr_slab_list(cache, slab);
     if (!curr_list) {
         DEBUG("Slab list malformed or not in cache");
         return 1;
@@ -211,7 +206,7 @@ int kalloc_cache_remove_slab(kalloc_cache_t * cache, kalloc_slab_t * slab)
         return ret;
 
     page_index = (uint64_t)slab->mem_ptr / PAGE_SIZE;
-    for (int i = 0; i < slab->mem_page_num; i++) {
+    for (unsigned int i = 0; i < slab->mem_page_num; i++) {
         mm_link_page_obj_ptr(page_index + i, NULL);
     }
 
@@ -222,11 +217,10 @@ int kalloc_cache_remove_slab(kalloc_cache_t * cache, kalloc_slab_t * slab)
 
 void * kalloc_cache_alloc(kalloc_cache_t * cache)
 {
-    int ret;
     kalloc_slab_t * slab;
-    ll_node_t * to_list, * from_list, * slab_node;
     void * obj;
-    ASSERT(cache);
+    
+    ASSERT_PANIC(cache, "Cache is NULL");
     
     if (cache->num == cache->max_num) {
         /*
@@ -246,7 +240,7 @@ void * kalloc_cache_alloc(kalloc_cache_t * cache)
        return NULL;
     }
 
-    slab = _get_free_slab(cache);
+    slab = get_free_slab(cache);
     if (!slab) {
         DEBUG_THROW("Slab is NULL");
         goto cache_alloc_fail;
@@ -259,7 +253,7 @@ void * kalloc_cache_alloc(kalloc_cache_t * cache)
         goto cache_alloc_fail;
     }
 
-    if (_check_slab_and_update_list(cache, slab)) {
+    if (check_slab_and_update_list(cache, slab)) {
         DEBUG_THROW("Checking and swapping slab failed. No movement or invalid list?");
         goto cache_alloc_fail;
     }
@@ -282,7 +276,7 @@ int kalloc_cache_free(kalloc_cache_t * cache, void * obj)
         return 1;
     }
 
-    slab = _get_slab_from_addr(cache, obj);
+    slab = get_slab_from_addr(cache, obj);
     if (slab) {
         goto cache_free_obj;
     } 
@@ -296,7 +290,7 @@ cache_free_obj:
 
     ret = kalloc_slab_free(slab, obj);
 
-    if (!ret && _check_slab_and_update_list(cache, slab)) {
+    if (!ret && check_slab_and_update_list(cache, slab)) {
         DEBUG_THROW("Checking and swapping slab failed. No movement or invalid list?");
         ret = 1;
     }
