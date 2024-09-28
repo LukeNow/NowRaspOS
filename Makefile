@@ -1,3 +1,5 @@
+.DEFAULT_GOAL := compile
+
 SRCS = $(wildcard *.c)
 OBJS = $(SRCS:.c=.o)
 CFLAGS = -Wall -O2 -Wextra -ffreestanding -mcpu=cortex-a53 -march=armv8-a -mgeneral-regs-only
@@ -54,13 +56,15 @@ kernel8.img: start.o $(OBJS)
 clean:
 	rm -rf $(BUILD_DIR)
 
-run: clean build
+compile: clean build
+
+run: compile
 	qemu-system-aarch64 -M raspi3b -kernel $(IMG) $(QEMU_FLAGS)
 
 debug:
 	$(GDB) $(ELF)
 
-debugrun: clean build gdbinit
+debugrun: compile gdbinit
 	qemu-system-aarch64 -M raspi3b -no-reboot $(QEMU_FLAGS) -kernel $(IMG) $(QEMU_DBG_FLAGS) 
 
 .PHONY: gdbinit
