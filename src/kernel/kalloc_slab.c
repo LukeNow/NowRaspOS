@@ -84,7 +84,7 @@ kalloc_slab_t * kalloc_slab_init(kalloc_slab_t * slab, void * mem_ptr, unsigned 
 
     slab->free_indexs = KALLOC_SLAB_FREE_INDEXS(slab);
     slab->free_index = 0;
-    for (int i = 0; i < num - 1; i++) {
+    for (unsigned int i = 0; i < num - 1; i++) {
         // For every index the next index is free
         slab->free_indexs[i] = i + 1;
     }

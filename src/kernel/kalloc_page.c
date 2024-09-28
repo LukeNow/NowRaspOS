@@ -193,7 +193,7 @@ static kalloc_buddy_t * split_buddy(mm_area_t * area, kalloc_buddy_t * buddy)
 
     if (memorder == 0) {
         DEBUG_PANIC("Splitting buddy of memorder 0");
-        return;
+        return NULL;
     }
 
     remove_buddy_list(area, buddy);
@@ -245,7 +245,7 @@ static kalloc_buddy_t * split_to_target_memorder(mm_area_t * area, kalloc_buddy_
 
     ASSERT_PANIC(start_buddy->buddy_memorder >= target_memorder, "Start buddy below target memorder.");
 
-    for (int i = (int)start_buddy->buddy_memorder; i > target_memorder; i--) {
+    for (int i = (int)start_buddy->buddy_memorder; i > (int)target_memorder; i--) {
         // Default to splitting from left child
         next_buddy = get_buddy_child(curr_buddy, LEFT_BUDDY);
         split_buddy(area, curr_buddy);
@@ -298,7 +298,7 @@ static uint64_t assign_buddy_page(mm_area_t * area, kalloc_buddy_t * buddy, unsi
     ASSERT_PANIC(buddy->buddy_memorder == 0, "Assign page Buddy is not memorder 0.");
 
     if (mm_page_is_valid(assign_page_index)) {
-        DEBUG_PANIC("Assinging page when page is valid. ");
+        DEBUG_PANIC("Assigning page when page is valid. ");
         return 0;
     }
 
@@ -319,7 +319,7 @@ static void free_buddy_page(mm_area_t * area, kalloc_buddy_t * buddy, unsigned i
 
     if (!mm_page_is_valid(free_page_index)) {
         DEBUG_PANIC("Assinging page when page is valid. ");
-        return 0;
+        return;
     }
 
     // If the other memorder 0 page is free, add this buddy to the free list
@@ -404,13 +404,12 @@ int kalloc_page_reserve_pages(uint64_t addr, unsigned int memorder, flags_t flag
 {
     kalloc_buddy_t * buddy;
     uint64_t buddy_addr;
-    unsigned int found_memorder;
     unsigned int page_index = addr / PAGE_SIZE;
     mm_area_t * area = mm_area_from_addr(addr);
 
     ASSERT_PANIC(area, "Free area not found from addr");
     ASSERT_PANIC(mm_is_initialized(), "Mm is not initialized.");
-    ASSERT_PANIC(IS_ALIGNED(addr, mm_memorder_to_pages(memorder) * PAGE_SIZE), "resrve addr is not aligned");
+    ASSERT_PANIC(IS_ALIGNED(addr, MM_MEMORDER_TO_PAGES(memorder) * PAGE_SIZE), "resrve addr is not aligned");
 
     if (!mm_pages_are_free(page_index, MM_MEMORDER_TO_PAGES(memorder))) {
         DEBUG_PANIC("Page is already reserved");
@@ -423,8 +422,9 @@ int kalloc_page_reserve_pages(uint64_t addr, unsigned int memorder, flags_t flag
 
     ASSERT_PANIC(buddy, "No free buddy found at given addr");
    
-    found_memorder = buddy->buddy_memorder;
     buddy = split_to_target_addr(area, buddy, addr, memorder);
+    
+    ASSERT_PANIC(buddy->buddy_memorder == memorder, "Found memorder is not the memorder we wanted.");
 
     if (memorder == 0) {
         buddy_addr = assign_buddy_page(area, buddy, page_index);

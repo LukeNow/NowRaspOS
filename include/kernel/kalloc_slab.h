@@ -10,7 +10,7 @@
 #define KALLOC_SLAB_EXTERN_ALLOC_F (1 << 1)
 
 /* Pointer to the free index list, which should be directly after the struct in memory. */
-#define KALLOC_SLAB_FREE_INDEXS(slab) ((kalloc_slab_t*)(slab) + 1)
+#define KALLOC_SLAB_FREE_INDEXS(slab) ((unsigned int *)((kalloc_slab_t*)(slab) + 1))
 /* Macro to extract the current cache list this slab belongs to, or any data we store in the ll node. */
 #define KALLOC_SLAB_CURR_LIST_P(slab) ((ll_node_t *)((slab)->node.data))
 
