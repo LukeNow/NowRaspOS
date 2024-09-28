@@ -1,6 +1,9 @@
 #ifndef __LOCK_H
 #define __LOCK_H
 
+#include <stdint.h>
+#include <stddef.h>
+
 typedef uint64_t lock_t;
 typedef lock_t spinlock_t;
 

@@ -5,8 +5,8 @@
 #include <common/linkedlist.h>
 #include <kernel/kalloc.h>
 #include <kernel/mm.h>
-#include <kernel/lock.h>
-#include <kernel/atomic.h>
+#include <common/lock.h>
+#include <common/atomic.h>
 #include <common/string.h>
 #include <common/bits.h>
 #include <common/math.h>

@@ -3,7 +3,7 @@
 #include <common/assert.h>
 #include <kernel/addr_defs.h>
 #include <kernel/uart.h>
-#include <kernel/lock.h>
+#include <common/lock.h>
 #include <kernel/mm.h>
 #include <kernel/kalloc_cache.h>
 #include <kernel/kalloc_page.h>

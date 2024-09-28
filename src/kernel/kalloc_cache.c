@@ -4,7 +4,7 @@
 #include <common/common.h>
 #include <common/string.h>
 #include <common/assert.h>
-#include <kernel/lock.h>
+#include <common/lock.h>
 #include <kernel/mm.h>
 #include <kernel/kalloc_slab.h>
 #include <kernel/kalloc_cache.h>

@@ -1,11 +1,10 @@
 #include  <stddef.h>
 #include  <stdint.h>
 
-
-extern int _atomic_cmpxchg(uint64_t *ptr, uint64_t old, uint64_t new);
-int atomic_cmpxchg(uint64_t *ptr, uint64_t old, uint64_t new)
+extern int _atomic_cmpxchg(uint64_t *ptr, uint64_t old_val, uint64_t new_val);
+int atomic_cmpxchg(uint64_t *ptr, uint64_t old_val, uint64_t new_val)
 {
-	return _atomic_cmpxchg(ptr, old, new);
+	return _atomic_cmpxchg(ptr, old_val, new_val);
 }
 
 // For these atomic ops we can do how linux does it

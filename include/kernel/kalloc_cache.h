@@ -4,7 +4,7 @@
 #include <common/common.h>
 #include <common/linkedlist.h>
 #include <kernel/kalloc_slab.h>
-#include <kernel/lock.h>
+#include <common/lock.h>
 
 /* kalloc_cache flags */
 /* Do not expand/shrink when full. */

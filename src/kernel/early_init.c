@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <kernel/aarch64_common.h>
+#include <common/aarch64_common.h>
 #include <kernel/mmu.h>
 #include <kernel/gpio.h>
 #include <kernel/mbox.h>

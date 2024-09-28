@@ -1,7 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <kernel/uart.h>
-#include <kernel/lock.h>
+#include <common/lock.h>
 
 DEFINE_SPINLOCK(lock);
 

@@ -3,7 +3,7 @@
 
 #include <kernel/gpio.h>
 #include <common/common.h>
-#include <kernel/aarch64_common.h>
+#include <common/aarch64_common.h>
 
 static int uart_ready = 0;
 

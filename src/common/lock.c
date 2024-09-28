@@ -1,7 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
-#include <kernel/lock.h>
-#include <kernel/atomic.h>
+#include <common/lock.h>
+#include <common/atomic.h>
 #include <common/common.h>
 
 int lock_init(lock_t *lock)

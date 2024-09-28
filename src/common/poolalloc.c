@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <kernel/poolalloc.h>
+#include <common/poolalloc.h>
 #include <common/assert.h>
-#include <kernel/atomic.h>
+#include <common/atomic.h>
 #include <common/arraylist_btree.h>
 #include <common/string.h>
 

@@ -6,7 +6,7 @@
 #include <kernel/mm.h>
 #include <kernel/gpio.h>
 #include <common/bits.h>
-#include <kernel/aarch64_common.h>
+#include <common/aarch64_common.h>
 #include <kernel/mmu.h>
 #include <common/assert.h>
 
