@@ -5,7 +5,7 @@
 #include <common/common.h>
 #include <kernel/mbox.h>
 
-EARLY_DATA(static int early_page_num);
+EARLY_DATA(static unsigned int early_page_num);
 EARLY_DATA(static uint8_t *early_page_start);
 EARLY_DATA(static uint8_t *early_page_end);
 EARLY_DATA(static uint8_t *early_page_curr);
@@ -14,9 +14,9 @@ EARLY_DATA(static int early_mm_initialized);
 
 EARLY_TEXT void early_get_mem_size(uint32_t *base_addr, uint32_t *size, mbox_prop_tag_t tag)
 {
-	uint32_t  __attribute__((aligned(16))) mbox[36];
-	mbox_message_t msg;
-    
+    uint32_t  __attribute__((aligned(16))) mbox[36];
+    mbox_message_t msg;
+
     mbox[0] = 8*4;                  // length of the message
     mbox[1] = MBOX_REQUEST;         // this is a request message
     mbox[2] = tag;   
@@ -31,9 +31,9 @@ EARLY_TEXT void early_get_mem_size(uint32_t *base_addr, uint32_t *size, mbox_pro
     }
 
     *MBOX_WRITE = (*(uint32_t *)&msg);
-	*base_addr = 0;
-	*size = 0;
-	
+    *base_addr = 0;
+    *size = 0;
+
     while (1) {
         while (*MBOX_STATUS & MBOX_EMPTY) {
             CYCLE_WAIT(3);
@@ -41,7 +41,7 @@ EARLY_TEXT void early_get_mem_size(uint32_t *base_addr, uint32_t *size, mbox_pro
         *(uint32_t *)&msg = *MBOX_READ;
         if (*(uint32_t *)&msg != 0 && mbox[1] == MBOX_RESPONSE) {
             *base_addr = mbox[5];
-		    *size = mbox[6];
+            *size = mbox[6];
             break;
 	    }
     }
@@ -49,15 +49,15 @@ EARLY_TEXT void early_get_mem_size(uint32_t *base_addr, uint32_t *size, mbox_pro
 
 EARLY_TEXT void* early_memset(void* bufptr, int value, size_t size) 
 {
-	unsigned char* buf = (unsigned char*) bufptr;
-	for (size_t i = 0; i < size; i++)
-		buf[i] = (unsigned char) value;
-	return bufptr;
+    unsigned char* buf = (unsigned char*) bufptr;
+    for (size_t i = 0; i < size; i++)
+        buf[i] = (unsigned char) value;
+    return bufptr;
 }
 
 EARLY_TEXT void align_early_mem(size_t size)
 {
-    mm_data_top = ALIGN_UP((uint64_t)mm_data_top, size);
+    mm_data_top = (uint8_t*)ALIGN_UP((uint64_t)mm_data_top, size);
 }
 
 EARLY_TEXT uint8_t * early_data_alloc(size_t size)
@@ -79,29 +79,23 @@ EARLY_TEXT uint8_t * early_page_data_alloc(unsigned int page_num)
 EARLY_TEXT void *mm_earlypage_alloc(int num_pages)
 {
     uint8_t *start = early_page_curr;
-    uint8_t *curr = early_page_curr;
 
     if (start + (PAGE_SIZE * num_pages) > early_page_end) {
         return NULL;
     }
 
-    curr += PAGE_SIZE * num_pages;
-    early_page_curr = curr;
+    early_page_curr += PAGE_SIZE * num_pages;
 
     return start;
 }
 
 EARLY_TEXT int mm_earlypage_shrink(int num_pages)
 {
-    uint8_t *start = early_page_curr;
-    uint8_t *curr = early_page_curr;
-
     // Account for underflow
-    if ((num_pages * PAGE_SIZE) > start || (start - (PAGE_SIZE * num_pages)) < early_page_start)
+    if ((num_pages * PAGE_SIZE) > early_page_curr || (early_page_curr - (PAGE_SIZE * num_pages)) < early_page_start)
         return 1;
 
-    curr -= PAGE_SIZE * num_pages;
-    early_page_curr = curr;
+    early_page_curr -= PAGE_SIZE * num_pages;
 
     return 0;
 }
@@ -115,8 +109,8 @@ EARLY_TEXT int mm_early_init()
 {
     uint32_t early_page_size = ((uint64_t) __earlypage_end) - ((uint64_t) __earlypage_start);
     early_page_num = early_page_size / PAGE_SIZE;
-    early_page_start = ((uint64_t) __earlypage_start);
-    early_page_end = ((uint64_t) __earlypage_end);
+    early_page_start = (uint8_t*)((uint64_t) __earlypage_start);
+    early_page_end = (uint8_t*)((uint64_t) __earlypage_end);
     early_page_curr = early_page_start;
 
     mm_data_top = (char *)early_page_end;
