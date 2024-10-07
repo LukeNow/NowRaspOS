@@ -19,14 +19,16 @@ HEADER_INCLUDE = include
 
 KERNSOURCES = $(wildcard $(SRC_KERNEL)/*.c)
 COMMONSOURCES = $(wildcard $(SRC_COMMON)/*.c)
-ASMSOURCES = $(wildcard $(SRC_KERNEL)/*.S)
+KERNSOURCESASM = $(wildcard $(SRC_KERNEL)/*.S)
+COMMONSOURCESASM = $(wildcard $(SRC_COMMON)/*.S)
 
 BUILD_DIR = build
 OBJ_DIR = $(BUILD_DIR)
 
 OBJECTS = $(patsubst $(SRC_KERNEL)/%.c, $(OBJ_DIR)/%.o, $(KERNSOURCES))
 OBJECTS += $(patsubst $(SRC_COMMON)/%.c, $(OBJ_DIR)/%.o, $(COMMONSOURCES))
-OBJECTS += $(patsubst $(SRC_KERNEL)/%.S, $(OBJ_DIR)/%.o, $(ASMSOURCES))
+OBJECTS += $(patsubst $(SRC_KERNEL)/%.S, $(OBJ_DIR)/%.o, $(KERNSOURCESASM))
+OBJECTS += $(patsubst $(SRC_COMMON)/%.S, $(OBJ_DIR)/%.o, $(COMMONSOURCESASM))
 HEADERS = $(wildcard $(HEADER_INCLUDE)/*.h)
 
 IMG_NAME = NowRaspOS
@@ -48,6 +50,10 @@ $(OBJ_DIR)/%.o: $(SRC_KERNEL)/%.S
 $(OBJ_DIR)/%.o: $(SRC_COMMON)/%.c
 	mkdir -p $(@D)
 	$(CC) $(CFLAGS) -I$(SRC_KERNEL) -I$(HEADER_INCLUDE) -c $< -o $@
+
+$(OBJ_DIR)/%.o: $(SRC_COMMON)/%.S
+	mkdir -p $(@D)
+	$(CC) $(CFLAGS) -I$(SRC_COMMON) -c $< -o $@
 
 kernel8.img: start.o $(OBJS)
 	aarch64-elf-ld -nostdlib start.o $(OBJS) -T link.ld -o kernel8.elf
