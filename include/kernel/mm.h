@@ -6,7 +6,7 @@
 #include <common/bitmap.h>
 #include <common/bits.h>
 #include <common/linkedlist.h>
-#include <kernel/lock.h>
+#include <common/lock.h>
 #include <kernel/early_mm.h>
 
 /* The number of Areas we pre reserve that mostly are our instruction pages and early memory. s*/
@@ -23,8 +23,6 @@
 #define MM_AREA_FROM_ADDR(ADDR) (&mm_global_area()->global_areas[MM_AREA_INDEX(ADDR)])
 #define MM_AREA_STRUCT_INDEX(AREA) ((AREA)->phys_addr_start / MM_AREA_SIZE)
 
-#define MM_MEMORDER_TO_PAGES(MEMORDER) (1 << MEMORDER)
-
 #define MM_MEMORDER_SIZE(MEMORDER) (PAGE_SIZE << (MEMORDER))
 #define MM_MEMORDER_MASK(MEMORDER) (~(MM_MEMORDER_SIZE(MEMORDER) - 1))
 
@@ -33,8 +31,8 @@
 
 #define MM_MEMORDER_TO_PAGES(MEMORDER) (1 << (MEMORDER))
 
-#define MM_AREA_FREE_BUDDY(AREA, MEMORDER) (ll_peek_first_list(&AREA->free_buddy_list[MEMORDER]))
-#define MM_GLOBAL_AREA_FREE_AREA(MEMORDER) (ll_peek_first_list(&mm_global_area()->free_areas_list[MEMORDER]))
+#define MM_AREA_FREE_BUDDY(AREA, MEMORDER) (ll_peek_first(&(AREA)->free_buddy_list[MEMORDER]))
+#define MM_GLOBAL_AREA_FREE_AREA(MEMORDER) (ll_peek_first(&mm_global_area()->free_areas_list[MEMORDER]))
 
 #define MM_PAGE_VALID (1 << 0)
 
@@ -42,11 +40,9 @@ typedef struct mm_addr_map {
     uint64_t virt_addr;
 } mm_addr_map_t;
 
-#define MM_PAGE_VALID (1 << 0)
-
 typedef struct kalloc_buddy {
     unsigned int buddy_memorder;
-    ll_node_t buddy_node;
+    list_node_t buddy_node;
 } kalloc_buddy_t;
 
 typedef struct mm_page {
@@ -62,10 +58,10 @@ typedef struct mm_area {
     unsigned int start_page_index;
     uint64_t phys_addr_start;
     kalloc_buddy_t * buddies;
-    /* The free bit_index into the bitmap is embedded in the ll_node's data. */
-    ll_node_t free_buddy_list[MM_MAX_INDEX_ORDER];
-    /* Nodes for linking to global area count lists. */
-    ll_node_t global_area_nodes[MM_MAX_INDEX_ORDER];
+    /* Simple ll list for keeping track of free buddies. */
+    ll_head_t free_buddy_list[MM_MAX_INDEX_ORDER];
+    /* Nodes for linking to global area count lists. Area ptr is embedded in data. */
+    sll_node_t global_area_nodes[MM_MAX_INDEX_ORDER];
 } mm_area_t;
 
 typedef struct mm_global_area {
@@ -74,7 +70,7 @@ typedef struct mm_global_area {
     mm_area_t * global_areas;
     kalloc_buddy_t * global_buddies;
     unsigned int area_count;
-    ll_node_t free_areas_list[MM_MAX_INDEX_ORDER];
+    ll_head_t free_areas_list[MM_MAX_INDEX_ORDER];
     spinlock_t lock;
 } mm_global_area_t;
 

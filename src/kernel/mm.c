@@ -10,6 +10,7 @@
 #include <kernel/early_mm.h>
 #include <common/math.h>
 #include <kernel/mmu.h>
+#include <common/linkedlist.h>
 
 DEFINE_SPINLOCK(mm_lock);
 
@@ -125,7 +126,7 @@ mm_area_t * mm_find_free_area(unsigned int memorder)
     for (unsigned int free_memorder = memorder; free_memorder < MM_MAX_ORDER + 1; free_memorder++) {
         node = MM_GLOBAL_AREA_FREE_AREA(free_memorder);
         if (node)
-            return (mm_area_t*)node->data;
+            return (mm_area_t*)node->sll.data;
     }
 
     return NULL;
@@ -160,14 +161,9 @@ int mm_area_init(mm_global_area_t * global_area, mm_area_t * area, unsigned int 
 
     for (unsigned int i = 0; i < MM_MAX_ORDER + 1; i++) {
         /* Init the list to keep track of free buddys in this area. */
-        ll_root_init(&area->free_buddy_list[i]);
-        ll_node_init(&area->global_area_nodes[i], (void*)area);
+        ll_head_init(&area->free_buddy_list[i], LIST_NODE_T);
+        ll_node_init(&area->global_area_nodes[i], (void*)area, SLL_NODE_T);
     }
-
-    /*
-    for (unsigned int i = 0; i < buddy_num; i++) {
-        kalloc_init_buddy(area, &area->buddies[i], MM_INVALID_ORDER, 0);
-    }*/
 
     // Init the first two buddies that make up the 8MB area size range
     kalloc_init_buddy(area, &area->buddies[0], MM_MAX_ORDER, 1);
@@ -202,7 +198,7 @@ int mm_init(size_t mem_size, uint64_t *mem_start_addr)
     spinlock_init(&global_area.lock);
     
     for (int i = 0; i < MM_MAX_ORDER + 1; i++) {
-        ll_root_init(&global_area.free_areas_list[i]);
+        ll_head_init(&global_area.free_areas_list[i], SLL_NODE_T);
     }
 
     /* Init all the global pages over the mem space. */
@@ -232,6 +228,6 @@ int mm_init(size_t mem_size, uint64_t *mem_start_addr)
 
     mm_initialized = 1;
 
-    DEBUG("---MM INIT DONE--");
+    DEBUG("---MM INIT DONE---");
     return 0;
 }

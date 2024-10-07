@@ -9,7 +9,7 @@
 #include <kernel/kalloc_slab.h>
 #include <kernel/kalloc_cache.h>
 
-static int add_remove_cache_list(ll_node_t  * to_cache_list, ll_node_t * from_cache_list, kalloc_slab_t * slab)
+static int add_remove_cache_list(ll_head_t  * to_cache_list, ll_head_t * from_cache_list, kalloc_slab_t * slab)
 {
     KALLOC_SLAB_VERIFY(slab);
 
@@ -22,7 +22,7 @@ static int add_remove_cache_list(ll_node_t  * to_cache_list, ll_node_t * from_ca
 
     if (to_cache_list) {
         // Initialize which list we are in in the ll_nodes.data
-        ll_node_init(&slab->node, to_cache_list);
+        ll_node_init(&slab->node, to_cache_list, SLL_NODE_T);
         if (ll_push_list(to_cache_list, &slab->node))  {
             DEBUG_THROW("Error in adding slab to full list");
             return 1;
@@ -32,11 +32,11 @@ static int add_remove_cache_list(ll_node_t  * to_cache_list, ll_node_t * from_ca
     return 0;
 }
 
-static ll_node_t * get_curr_slab_list(kalloc_cache_t * cache, kalloc_slab_t * slab)
+static ll_head_t * get_curr_slab_list(kalloc_cache_t * cache, kalloc_slab_t * slab)
 {
     KALLOC_SLAB_VERIFY(slab);
 
-    ll_node_t * curr_list = KALLOC_SLAB_CURR_LIST_P(slab);
+    ll_head_t * curr_list = KALLOC_SLAB_CURR_LIST_P(slab);
 
     if (!curr_list || (curr_list != &cache->free_list && curr_list != &cache->partial_list && curr_list != &cache->full_list)) {
         DEBUG_THROW("Slab curr list does not map onto any cache list head");
@@ -49,9 +49,9 @@ static ll_node_t * get_curr_slab_list(kalloc_cache_t * cache, kalloc_slab_t * sl
 static kalloc_slab_t * get_free_slab(kalloc_cache_t * cache)
 {
     kalloc_slab_t * slab;
-    ll_node_t * slab_node;
+    sll_node_t * slab_node;
 
-    if (!(slab_node = ll_peek_first_list(&cache->partial_list)) && !(slab_node = ll_peek_first_list(&cache->free_list)))  {
+    if (!(slab_node = ll_peek_first(&cache->partial_list)) && !(slab_node = ll_peek_first(&cache->free_list)))  {
         DEBUG("No free slabs in both partial and free list found");
         return NULL;
     }
@@ -64,13 +64,13 @@ static kalloc_slab_t * get_free_slab(kalloc_cache_t * cache)
     return slab;
 }
 
-static kalloc_slab_t * _get_slab_from_addr(ll_node_t * list, void * obj)
+static kalloc_slab_t * _get_slab_from_addr(ll_head_t * list, void * obj)
 {
-    ll_node_t * node_p;
+    ll_node_t * p;
     kalloc_slab_t * slab;
 
-    LL_ITERATE_LIST(list, node_p) {
-        slab = STRUCT_P(node_p, kalloc_slab_t, node);
+    LL_ITER_LIST(list, p) {
+        slab = STRUCT_P(p, kalloc_slab_t, node);
         KALLOC_SLAB_VERIFY(slab);
         if (PTR_IN_RANGE(obj, slab->mem_ptr, slab->obj_size * slab->max_num)) {
             return slab;
@@ -103,7 +103,7 @@ static kalloc_slab_t * get_slab_from_addr(kalloc_cache_t * cache, void * obj)
 
 static int check_slab_and_update_list(kalloc_cache_t * cache, kalloc_slab_t * slab)
 {
-    ll_node_t * to_list, *curr_list;
+    ll_head_t * to_list, * curr_list;
     
     KALLOC_SLAB_VERIFY(slab);
     ASSERT(cache && slab);
@@ -315,9 +315,9 @@ int kalloc_cache_init(kalloc_cache_t * cache, size_t obj_size,
     cache->flags = flags;
 
     lock_init(&cache->lock);
-    ll_root_init(&cache->free_list);
-    ll_root_init(&cache->partial_list);
-    ll_root_init(&cache->full_list);
+    ll_head_init(&cache->free_list, SLL_NODE_T);
+    ll_head_init(&cache->partial_list, SLL_NODE_T);
+    ll_head_init(&cache->full_list, SLL_NODE_T);
 
     if (page_allocator) {
         ASSERT(!(cache->flags & KALLOC_CACHE_NO_EXPAND_F));

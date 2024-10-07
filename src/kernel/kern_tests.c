@@ -13,70 +13,147 @@
 #include <kernel/kalloc_page.h>
 #include <kernel/early_mm.h>
 
-void linked_list_test()
-{
+#define LL_TEST_NUM 6
+
+static void ll_info_add(ll_head_t * head, ll_node_t * nodes, void * data, unsigned int index)
+{	
 	int ret = 0;
-	ll_node_t * temp;
-    ll_node_t ll_root;
+	ll_node_init(&nodes[index], data, head->type);
+	ret = ll_push_list(head, &nodes[index]);
+	ASSERT_PANIC(!ret, "Ll push list failed");
+	DEBUG_DATA("Added node at=", &nodes[index]);
+}
 
-	LL_ROOT_ZERO(ll_root);
-	ll_node_t node1;
-	node1.data = (void*)1;
-
-	ll_node_t node2;
-	node2.data = (void*)2;
-
-	ll_node_t node3;
-	node3.data = (void*)3;
-
-	ll_node_t node4;
-	node4.data = (void*)4;
-
-	ll_node_t node5;
-	node5.data = (void*)5;
-
-	ll_node_t node6;
-	node6.data = (void*)6;
-
-	ll_push_list(&ll_root, &node1);
-	ll_push_list(&ll_root, &node2);
-
-	ll_traverse_list(&ll_root);
-	/*
-	if (ll_node_exists(&ll_root, &node1)) {
-		printf("EXISTS FAILED\n");
-	}
-
-
-	if (ret = ll_delete_node(&ll_root, &node1)) {
-		printf("DELETE FAILED\n");
-	}
-	*/
-	//ll_traverse_list(&ll_root);
-	temp = ll_pop_list(&ll_root);
-
-	ll_push_list(&ll_root, &node2);
-
-	ll_insert_node(&ll_root, &node2, &node3);
-
-	ll_traverse_list(&ll_root);
-
-	ll_append_list_index(&ll_root, &node4, 0);
-
-	ll_traverse_list(&ll_root);
-
-	ll_append_list_index(&ll_root, &node5, -1);
-
-	ll_traverse_list(&ll_root);
-
-	ll_append_list_index(&ll_root, &node6, -2);
-
-	ll_traverse_list(&ll_root);
-
-	ll_delete_list_index(&ll_root, 0);
-
-	ll_traverse_list(&ll_root);
+static void list_test()
+{
+	DEBUG("---LIST LL TEST ---");
+	ll_node_t * p;
+	ll_head_t head;
+	ll_node_t nodes[LL_TEST_NUM];
+	list_node_t node1;
+	list_node_t node2;
+	unsigned int i = 0;
 	
+	memset(&nodes[0], 0, sizeof(list_node_t) * LL_TEST_NUM);
+
+	ll_head_init(&head, LIST_NODE_T);
+	
+	for (unsigned int i = 0; i < LL_TEST_NUM; i++) {
+		ll_info_add(&head, &nodes[0], NULL, i);
+
+		for (unsigned int j = 0; j < LL_TEST_NUM; j++) {
+			if (nodes[j].list.next) {
+				DEBUG_DATA("next=", nodes[j].list.next);
+			} else 
+				break;
+		}
+	}
+
+	ll_push_list(&head, &node1);
+	ll_push_list(&head, &node2);
+
+	ASSERT_PANIC(node1.next == &node2, "Inorder push failed");
+	ll_delete_node(&head, &node1);
+	ASSERT_PANIC(head.last == &node2, "Head is not pointing at last");
+	ll_delete_node(&head, &node2);
+	ASSERT_PANIC(head.last == &nodes[LL_TEST_NUM - 1], "Head is not pointing at last"); 
+	ASSERT_PANIC(head.next == &nodes[0], "Head is not pointing at first");
+
+	i = 0;
+	LL_ITER_LIST(&head, p) {
+		ASSERT_PANIC(head.next == &nodes[i], "Inorder delete failed");
+		ll_delete_node(&head, &nodes[i]);
+		i ++;
+	}
+
+	ASSERT_PANIC(head.count == 0, "Head count is not zero");
+	DEBUG("Delete done");
+
+	i = 0;
+	LL_ITER_LIST(&head, p) {
+		DEBUG_DATA_DIGIT("list i = ", i);
+		DEBUG_DATA("ptr=", p);
+		DEBUG_DATA("next", p->list.next);
+		i ++;
+	}
+
+	DEBUG("---LIST LL DONE ---");
+}
+
+void dll_test()
+{
+	DEBUG("---DLL LIST TEST ---");
+
+	ll_node_t * p;
+	ll_head_t head;
+	ll_node_t nodes[LL_TEST_NUM];
+	ll_node_t node1;
+	ll_node_t node2;
+	unsigned int i = 0;
+	
+	memset(&nodes[0], 0, sizeof(list_node_t) * LL_TEST_NUM);
+
+	ll_head_init(&head, DLL_NODE_T);
+	
+	for (unsigned int i = 0; i < LL_TEST_NUM; i++) {
+		ll_info_add(&head, &nodes[0], i, i);
+
+		for (unsigned int j = 0; j < LL_TEST_NUM; j++) {
+			if (nodes[j].list.next) {
+				DEBUG_DATA("next=", nodes[j].list.next);
+				DEBUG_DATA("data=", nodes[j].sll.data);
+				DEBUG_DATA("last=", nodes[j].dll.last);
+			} else 
+				break;
+		}
+	}
+
+	ASSERT_PANIC(head.next == &nodes[0], "Head is not pointing at first4"); 
+	
+	ll_push_list(&head, &node1);
+	ll_push_list(&head, &node2);
+
+	//DEBUG_DATA("head next=", head.next);
+
+	ASSERT_PANIC(head.next == &nodes[0], "Head is not pointing at first1"); 
+	ASSERT_PANIC(node1.dll.next == &node2, "Inorder push failed");
+	ASSERT_PANIC(node2.dll.last == &node1, "Inorder push failed");
+	ll_delete_node(&head, &node1);
+	ASSERT_PANIC(head.next == &nodes[0], "Head is not pointing at first2"); 
+	ASSERT_PANIC(head.last == &node2, "Head is not pointing at last");
+	ASSERT_PANIC(node2.dll.last == &nodes[LL_TEST_NUM - 1], "Inorder push failed");
+	ASSERT_PANIC(nodes[LL_TEST_NUM - 1].dll.next == &node2, "Inorder push failed");
+	ll_delete_node(&head, &node2);
+	ASSERT_PANIC(head.next == &nodes[0], "Head is not pointing at first3"); 
+	ASSERT_PANIC(head.last == &nodes[LL_TEST_NUM - 1], "Head is not pointing at last");
+	ASSERT_PANIC(head.next == &nodes[0], "Head is not pointing at first"); 
+
+	DEBUG_DATA("head next=", head.next);
+	i = 0;
+	LL_ITER_LIST(&head, p) {
+		ASSERT_PANIC(head.next == &nodes[i], "Inorder delete failed");
+		ll_delete_node(&head, &nodes[i]);
+		i ++;
+	}
+
+	ASSERT_PANIC(head.count == 0, "Head count is not zero");
+	DEBUG("Delete done");
+
+	i = 0;
+	LL_ITER_LIST(&head, p) {
+		DEBUG_DATA_DIGIT("list i = ", i);
+		DEBUG_DATA("ptr=", p);
+		DEBUG_DATA("next", p->list.next);
+		i ++;
+	}
+
+}
+
+void ll_test()
+{
+	list_test();
+	dll_test();
+	//DEBUG_PANIC("END");
 }
 
 void math_test()
@@ -458,7 +535,7 @@ void mm_test()
 	for (int i = 0; i < MM_TEST_NUM; i++) {
 		int rand_op = rand_prng() % (MM_TEST_ALLOC_WEIGHT);
 		int rand_memorder = rand_prng() % (MM_TEST_MEMORDER_RANGE + 1);
-		//int rand_memorder = 1;
+		//int rand_memorder = 0;
 
 		if (rand_op < MM_TEST_FREE_WEIGHT && alloc > free) {
 			DEBUG("MM TEST FREE");

@@ -16,9 +16,9 @@ typedef struct kalloc_cache {
     unsigned int max_num;
     unsigned int num;
     size_t obj_size;
-    ll_node_t free_list;
-    ll_node_t partial_list;
-    ll_node_t full_list;
+    ll_head_t free_list;
+    ll_head_t partial_list;
+    ll_head_t full_list;
     unsigned int slab_init_page_num;
     unsigned int page_num;
     void *(*page_allocator)(unsigned int, flags_t);

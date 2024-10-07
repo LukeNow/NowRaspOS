@@ -4,18 +4,18 @@
 #include <kernel/uart.h>
 #include <kernel/mbox.h>
 #include <kernel/mmu.h>
-#include <kernel/lock.h>
+#include <common/lock.h>
 #include <common/assert.h>
 #include <common/common.h>
 #include <common/math.h>
-#include <kernel/atomic.h>
-#include <kernel/aarch64_common.h>
+#include <common/atomic.h>
+#include <common/aarch64_common.h>
 #include <kernel/addr_defs.h>
 #include <kernel/irq.h>
 #include <kernel/mm.h>
 #include <common/arraylist_btree.h>
 #include <common/string.h>
-#include <kernel/poolalloc.h>
+#include <common/poolalloc.h>
 #include <kernel/kalloc.h>
 #include <common/rand.h>
 #include <common/bits.h>
@@ -206,6 +206,11 @@ void kernel_main(uint64_t dtb_ptr32, uint64_t x1, uint64_t x2, uint64_t x3)
 	printf("Hello from main core!\n");
 
 	//mm_early_init();
+
+	ll_test();
+
+	//DEBUG_PANIC("EOK REACHED");
+
 
 	_get_mem_size(&mem_base_addr, &mem_size, MAILBOX_TAG_GET_ARM_MEMORY);
 	_get_mem_size(&vc_base_addr, &vc_mem_size, MAILBOX_TAG_GET_VC_MEMORY);

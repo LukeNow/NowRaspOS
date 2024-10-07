@@ -15,11 +15,12 @@
 static void add_buddy_list(mm_area_t * area, kalloc_buddy_t * buddy)
 {
     unsigned int memorder = buddy->buddy_memorder;
-    ll_node_t * global_areas_list = &mm_global_area()->free_areas_list[memorder];
-    ll_node_t * buddy_list = &area->free_buddy_list[memorder];
+    ll_head_t * global_areas_list = &mm_global_area()->free_areas_list[memorder];
+    ll_head_t * buddy_list = &area->free_buddy_list[memorder];
 
     // If the area list was empty before, we push this area to the global free lists
     if (!MM_AREA_FREE_BUDDY(area, memorder)) {
+        ll_node_init(&area->global_area_nodes[memorder], area, SLL_NODE_T);
         if (ll_push_list(global_areas_list, &area->global_area_nodes[memorder]))  {
             DEBUG_PANIC("Could not push global areas list");
             return;
@@ -37,12 +38,8 @@ static void add_buddy_list(mm_area_t * area, kalloc_buddy_t * buddy)
 static void remove_buddy_list(mm_area_t * area, kalloc_buddy_t * buddy)
 {   
     unsigned int memorder = buddy->buddy_memorder;
-    ll_node_t * global_areas_list = &mm_global_area()->free_areas_list[memorder];
-    ll_node_t * buddy_list = &area->free_buddy_list[memorder];
-
-    if (buddy->buddy_node.next == &buddy->buddy_node || buddy->buddy_node.last == &buddy->buddy_node) {
-        DEBUG_PANIC("Buddy node invlaid.");
-    }
+    ll_head_t * global_areas_list = &mm_global_area()->free_areas_list[memorder];
+    ll_head_t * buddy_list = &area->free_buddy_list[memorder];
 
     if (ll_delete_node(buddy_list, &buddy->buddy_node))  {
         DEBUG_PANIC("Ll node delete fail");
@@ -50,8 +47,7 @@ static void remove_buddy_list(mm_area_t * area, kalloc_buddy_t * buddy)
     }
 
     // Reset the buddy node to indicate this node is not free
-    buddy->buddy_node.next = NULL;
-    buddy->buddy_node.last = NULL;
+    ll_node_init(&buddy->buddy_node, NULL, LIST_NODE_T);
 
     // If there are no more free buddys of this memorder in this area, remove it from the global areas free list
     if (!MM_AREA_FREE_BUDDY(area, memorder))  {
@@ -59,12 +55,14 @@ static void remove_buddy_list(mm_area_t * area, kalloc_buddy_t * buddy)
             DEBUG_PANIC("LL area list delete fail");
             return;
         }
+
+        ll_node_init(&area->global_area_nodes[memorder], area, SLL_NODE_T);
     }
 }
 
 void kalloc_init_buddy(mm_area_t * area, kalloc_buddy_t * buddy, unsigned int memorder, unsigned int add_to_list)
 {
-    memset(&buddy->buddy_node, 0, sizeof(ll_node_t));
+    memset(&buddy->buddy_node, 0, sizeof(list_node_t));
     buddy->buddy_memorder = memorder;
 
     if (add_to_list)
@@ -105,7 +103,7 @@ static inline uint64_t get_buddy_addr(kalloc_buddy_t * buddy)
     return (kalloc_get_buddy_page_index(buddy)) * PAGE_SIZE;
 }
 
-static inline kalloc_buddy_t * get_buddy_from_node(ll_node_t * node)
+static inline kalloc_buddy_t * get_buddy_from_node(list_node_t * node)
 {
     return STRUCT_P(node, kalloc_buddy_t, buddy_node);
 }
@@ -137,17 +135,21 @@ static kalloc_buddy_t * get_buddy_child(kalloc_buddy_t * buddy, unsigned int chi
     return buddy;
 }
 
-//TODO make this more efficent instead of checking all pages, just check start pages or if nodes are on the free list
-static unsigned int is_buddy_free(kalloc_buddy_t * buddy)
+static unsigned int is_buddy_free(mm_area_t * area, kalloc_buddy_t * buddy)
 {   
-    if (!buddy->buddy_node.next || !buddy->buddy_node.last)
-        return 0;
+    ll_head_t * buddy_list = &area->free_buddy_list[buddy->buddy_memorder];
 
-    return mm_pages_are_free(kalloc_get_buddy_page_index(buddy), MM_MEMORDER_TO_PAGES(buddy->buddy_memorder));
+    if ((buddy_list->last == (ll_node_t *)&buddy->buddy_node && !buddy->buddy_node.next) || 
+         buddy->buddy_node.next)
+        return 1;
+
+    return 0;
+   
+    //return mm_pages_are_free(kalloc_get_buddy_page_index(buddy), MM_MEMORDER_TO_PAGES(buddy->buddy_memorder));
 }
 
 /* Get the highest order free ancestor including the given buddy. */
-static kalloc_buddy_t * get_free_ancestor(kalloc_buddy_t * buddy)
+static kalloc_buddy_t * get_free_ancestor(mm_area_t * area, kalloc_buddy_t * buddy)
 {
     kalloc_buddy_t * parent;
     unsigned int memorder = buddy->buddy_memorder;
@@ -157,12 +159,16 @@ static kalloc_buddy_t * get_free_ancestor(kalloc_buddy_t * buddy)
         return buddy;
 
     while (memorder != MM_MAX_ORDER) {
-        if (is_buddy_free(buddy))
-            return buddy;
-
         parent = get_buddy_parent(buddy);
-        if (parent == buddy)
+        
+        if (is_buddy_free(area, buddy)) {
             return buddy;
+        }
+
+        if (parent == buddy) {
+            DEBUG_PANIC("Buddy is topmost buddy but is not free");
+            return NULL;
+        }
 
         buddy = parent;
         memorder = buddy->buddy_memorder;
@@ -215,7 +221,6 @@ static kalloc_buddy_t * split_to_target_addr(mm_area_t * area, kalloc_buddy_t * 
 {
     kalloc_buddy_t * curr_buddy = start_buddy;
     kalloc_buddy_t * next_buddy;
-    uint64_t buddy_addr;
 
     ASSERT_PANIC(start_buddy->buddy_memorder >= target_memorder, "Start buddy below target memorder. ");
 
@@ -227,7 +232,6 @@ static kalloc_buddy_t * split_to_target_addr(mm_area_t * area, kalloc_buddy_t * 
     }
    
     for (int i = (int)start_buddy->buddy_memorder; i > (int)target_memorder; i--) {
-        buddy_addr = get_buddy_addr(curr_buddy);
         next_buddy = next_child_from_addr(area, curr_buddy, target_addr);
         split_buddy(area, curr_buddy);
         curr_buddy = next_buddy;
@@ -257,7 +261,7 @@ static kalloc_buddy_t * split_to_target_memorder(mm_area_t * area, kalloc_buddy_
 
 static kalloc_buddy_t * find_free_buddy(mm_area_t * area, unsigned int memorder)
 {
-    ll_node_t * buddy_node;
+    list_node_t * buddy_node;
     kalloc_buddy_t * buddy;
     unsigned int free_memorder;
 
@@ -322,7 +326,7 @@ static void free_buddy_page(mm_area_t * area, kalloc_buddy_t * buddy, unsigned i
         return;
     }
 
-    // If the other memorder 0 page is free, add this buddy to the free list
+    // If the other memorder 0 page is taken, add this buddy to the free list
     if (mm_page_is_valid(free_page_index ^ 1)) {
         add_buddy_list(area, buddy);
     } else { // This buddy is now completly free, set it as a memorder 1 buddy and add back to free list for coalescing
@@ -336,11 +340,10 @@ static void free_buddy_page(mm_area_t * area, kalloc_buddy_t * buddy, unsigned i
 
 static uint64_t assign_buddy(mm_area_t * area, kalloc_buddy_t * buddy)
 {   
-    kalloc_buddy_t * sibling = kalloc_get_buddy_sibling(buddy);
     unsigned int memorder_pages = MM_MEMORDER_TO_PAGES(buddy->buddy_memorder);
     unsigned int page_index = kalloc_get_buddy_page_index(buddy);
 
-    if (!is_buddy_free(buddy)) {
+    if (!is_buddy_free(area, buddy)) {
         DEBUG_PANIC("Non zero memorder assign is not complely free.");
     }
 
@@ -358,7 +361,8 @@ static void coalesce_buddies(mm_area_t * area, kalloc_buddy_t * buddy)
     for (unsigned int i = buddy->buddy_memorder; i < MM_MAX_ORDER; i++)  {
         sibling = kalloc_get_buddy_sibling(buddy);
 
-        if (!buddy->buddy_memorder || sibling->buddy_memorder != buddy->buddy_memorder || !is_buddy_free(buddy) || !is_buddy_free(sibling))
+        if (!buddy->buddy_memorder || sibling->buddy_memorder != buddy->buddy_memorder ||
+            !is_buddy_free(area, buddy) || !is_buddy_free(area, sibling))
             break;
 
         parent = get_buddy_parent(buddy);
@@ -418,7 +422,7 @@ int kalloc_page_reserve_pages(uint64_t addr, unsigned int memorder, flags_t flag
     buddy = kalloc_get_buddy_from_page_index(page_index);
     // Make sure we get the topmost free ancestor so we can preserve the buddy structure
     // and split it later to the correct buddy we want to reserve
-    buddy = get_free_ancestor(buddy);
+    buddy = get_free_ancestor(area, buddy);
 
     ASSERT_PANIC(buddy, "No free buddy found at given addr");
    

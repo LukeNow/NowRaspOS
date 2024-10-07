@@ -12,7 +12,7 @@
 /* Pointer to the free index list, which should be directly after the struct in memory. */
 #define KALLOC_SLAB_FREE_INDEXS(slab) ((unsigned int *)((kalloc_slab_t*)(slab) + 1))
 /* Macro to extract the current cache list this slab belongs to, or any data we store in the ll node. */
-#define KALLOC_SLAB_CURR_LIST_P(slab) ((ll_node_t *)((slab)->node.data))
+#define KALLOC_SLAB_CURR_LIST_P(slab) ((ll_head_t *)((slab)->node.data))
 
 #define KALLOC_SLAB_VERIFY(slab) ASSERT_PANIC(slab, "Slab ptr is null"); \
                         ASSERT_PANIC(slab->obj_size, "Slab obj size nonzer0"); \
@@ -25,7 +25,7 @@ typedef struct kalloc_slab {
     unsigned int num;
     size_t obj_size;
     void * mem_ptr;
-    ll_node_t node;
+    sll_node_t node;
     flags_t flags;
     unsigned int mem_page_num;
     unsigned int free_index;
