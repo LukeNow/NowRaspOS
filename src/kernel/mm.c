@@ -18,6 +18,23 @@ static mm_global_area_t global_area;
 
 static int mm_initialized = 0;
 
+/* Early heap wrappers. For now since we are 1-1 mapping memory we can just
+ * add the virtual offset to indicate we are in kernel memory. */
+static void align_mem(size_t size)
+{
+    align_early_mem(size);
+}
+
+static uint8_t * data_alloc(size_t size)
+{
+    return early_data_alloc(size) + MMU_UPPER_ADDRESS;
+}
+
+static uint8_t * page_data_alloc(unsigned page_num)
+{
+    return early_page_data_alloc(page_num) + MMU_UPPER_ADDRESS;
+}
+
 int mm_is_initialized()
 {
     return mm_initialized;
@@ -173,17 +190,66 @@ int mm_area_init(mm_global_area_t * global_area, mm_area_t * area, unsigned int 
     return 0;
 }
 
-int mm_init(size_t mem_size, uint64_t *mem_start_addr)
-{ 
-    unsigned int num_pages = mem_size / PAGE_SIZE;
-    size_t global_pages_size_pages_num = (num_pages * sizeof(mm_page_t)) / PAGE_SIZE;
-    unsigned int area_num = mem_size / MM_AREA_SIZE;
-    int ret = 0;
+/* Reserve the early memory up to the early heap top, which should be the
+ * top of the early memory space, with all code and data being placed below it. */
+static void mm_reserve_early_mem(mmu_mem_map_t * phys_mem_map, uint64_t early_heap_top)
+{  
+    int ret;
+    uint64_t device_mem_start;
+    mm_area_t * last_area;
+    unsigned int area_end;
+    unsigned int reserve_page_num = ALIGN_UP(early_heap_top, PAGE_SIZE) / PAGE_SIZE;
 
+    for (int i = 0; i < reserve_page_num; i++) {
+        ret = kalloc_page_reserve_pages(i * PAGE_SIZE, 0, 0);
+        if (ret) {
+            DEBUG_PANIC("Reserve pages failed on initial mem reserve");
+            return;
+        }
+    }
+
+    device_mem_start = phys_mem_map[EARLY_MEM_MAP_DEVICE_MEM_START].start_addr;
+    last_area = &mm_global_area()->global_areas[mm_global_area()->area_count - 1];
+
+    /* If our last area happens to overlap with innacessible device memory,
+     * we need to reserve those pages so we don't use them in our allocators. */
+    if (!VAL_IN_RANGE(device_mem_start, last_area->phys_addr_start, MM_AREA_SIZE))
+        return;
+
+    area_end = (last_area->phys_addr_start + MM_AREA_SIZE) / PAGE_SIZE;
+    for (unsigned int i = (device_mem_start / PAGE_SIZE); i < area_end; i++) {
+        ret = kalloc_page_reserve_pages(i * PAGE_SIZE, 0, 0);
+        if (ret) {
+            DEBUG_PANIC("Reserve pages failed on initial mem reserve");
+            return;
+        }
+    }
+}
+
+void mm_init()
+{
     DEBUG("---MM INIT START--");
 
+    size_t mem_size;
+    unsigned int num_pages ;
+    size_t global_pages_size_pages_num;
+    unsigned int area_num;
+    mmu_mem_map_t * phys_mem_map;
+    int ret;
 
     ASSERT_PANIC(mm_early_is_intialized(), "Early mm is not initialized");
+
+    phys_mem_map = mm_early_get_memmap();
+
+    mem_size = phys_mem_map[0].size;
+    /* We are aligning the memory space up to the AREA_SIZE which
+     * might overlap with innaccesible memory, will need to take care to reserve
+     * any pages that fall in this boundary */
+    mem_size = ALIGN_UP(mem_size, MM_AREA_SIZE);
+
+    num_pages = mem_size / PAGE_SIZE;
+    global_pages_size_pages_num = (num_pages * sizeof(mm_page_t)) / PAGE_SIZE;
+    area_num = mem_size / MM_AREA_SIZE;
 
     DEBUG_FUNC_DIGIT("-Global area page num=", num_pages);
     DEBUG_FUNC_DIGIT("-Global area pages struct size pages=", global_pages_size_pages_num);
@@ -202,25 +268,24 @@ int mm_init(size_t mem_size, uint64_t *mem_start_addr)
     }
 
     /* Init all the global pages over the mem space. */
-    global_area.global_pages = (mm_page_t *)early_page_data_alloc(global_pages_size_pages_num);
+    global_area.global_pages = (mm_page_t *)page_data_alloc(global_pages_size_pages_num);
     global_area.page_count = num_pages;
     memset(global_area.global_pages, 0, global_pages_size_pages_num * sizeof(mm_page_t));
 
     /* Init the areas over the memory space. */
-    align_early_mem(PAGE_SIZE);
-    global_area.global_areas = (mm_area_t *)early_data_alloc(sizeof(mm_area_t) * area_num);
+    align_mem(PAGE_SIZE);
+    global_area.global_areas = (mm_area_t *)data_alloc(sizeof(mm_area_t) * area_num);
     memset(global_area.global_areas, 0, sizeof(mm_area_t) * area_num);
 
-    align_early_mem(PAGE_SIZE);
-    global_area.global_buddies = (kalloc_buddy_t *)early_data_alloc((num_pages / 2) * sizeof(kalloc_buddy_t));
+    align_mem(PAGE_SIZE);
+    global_area.global_buddies = (kalloc_buddy_t *)data_alloc((num_pages / 2) * sizeof(kalloc_buddy_t));
     memset(global_area.global_buddies, 0, (num_pages / 2) * sizeof(kalloc_buddy_t));
 
     for (unsigned int i = 0; i < area_num; i++) {
         ret = mm_area_init(&global_area, &global_area.global_areas[i], (i * MM_AREA_SIZE)/PAGE_SIZE);
         if (ret) {
-            ASSERT(0);
-            DEBUG("MM area init failed");
-            return 1;
+            DEBUG_PANIC("MM area init failed");
+            return;
         }
     }
 
@@ -228,6 +293,7 @@ int mm_init(size_t mem_size, uint64_t *mem_start_addr)
 
     mm_initialized = 1;
 
+    mm_reserve_early_mem(phys_mem_map, (uint64_t)mm_early_get_heap_top());
+
     DEBUG("---MM INIT DONE---");
-    return 0;
 }

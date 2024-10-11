@@ -7,10 +7,6 @@
 #include <common/bits.h>
 #include <common/linkedlist.h>
 #include <common/lock.h>
-#include <kernel/early_mm.h>
-
-/* The number of Areas we pre reserve that mostly are our instruction pages and early memory. s*/
-#define MM_RESERVE_AREA_INDEX 3
 
 /* The max order of page orders that we keep track of. Similiar to the linux max order size. 
  * Areas can be represented with 2 64bit bitmaps */
@@ -25,9 +21,6 @@
 
 #define MM_MEMORDER_SIZE(MEMORDER) (PAGE_SIZE << (MEMORDER))
 #define MM_MEMORDER_MASK(MEMORDER) (~(MM_MEMORDER_SIZE(MEMORDER) - 1))
-
-#define MM_GLOBAL_AREA_INDEX(ADDR) (MM_MEMORDER_INDEX(ADDR, MM_MAX_ORDER + 1))
-#define MM_GLOBAL_PAGE_INDEX(ADDR) (MM_MEMORDER_INDEX(ADDR, 0))
 
 #define MM_MEMORDER_TO_PAGES(MEMORDER) (1 << (MEMORDER))
 
@@ -74,10 +67,6 @@ typedef struct mm_global_area {
     spinlock_t lock;
 } mm_global_area_t;
 
-int mm_early_is_intialized();
-int mm_early_init();
-void * mm_earlypage_alloc(int num_pages);
-int mm_earlypage_shrink(int num_pages);
 
 int mm_page_is_valid(unsigned int page_index);
 int mm_pages_are_valid(unsigned int start_page_index, unsigned int page_num);
@@ -94,7 +83,7 @@ mm_area_t * mm_area_from_addr(uint64_t addr);
 mm_global_area_t * mm_global_area();
 
 int mm_is_initialized();
-int mm_init(size_t mem_size, uint64_t *mem_start_addr);
 int mm_area_init(mm_global_area_t * global_area, mm_area_t * area, unsigned int start_page_index);
+void mm_init();
 
 #endif

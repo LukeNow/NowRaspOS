@@ -200,46 +200,22 @@ void kernel_main(uint64_t dtb_ptr32, uint64_t x1, uint64_t x2, uint64_t x3)
 	uint8_t *page_p;
 	int r;
 
-	//_zero_mem();
 	uart_init();
 
 	printf("Hello from main core!\n");
 
-	//mm_early_init();
-
-	ll_test();
-
-	//DEBUG_PANIC("EOK REACHED");
-
-
-	_get_mem_size(&mem_base_addr, &mem_size, MAILBOX_TAG_GET_ARM_MEMORY);
-	_get_mem_size(&vc_base_addr, &vc_mem_size, MAILBOX_TAG_GET_VC_MEMORY);
-
 	irq_init();
-
-	//DEBUG_DATA("Mem base addr=", mem_base_addr);
-	//DEBUG_DATA("MEMSIZE in pages?=", mem_size);
-	//DEBUG_DATA("VC mem base addr=", vc_base_addr);
-	//DEBUG_DATA("VC memsize=", vc_mem_size);
-
-	//mmu_init(mem_size, vc_base_addr, vc_mem_size);
-
-	mmu_test();
-	//DEBUG_PANIC("EOK REACHED");
 
 	timer_init();
 	timer_enable();
 
-	mm_init(mem_size, 0);
-	reserve_mem_regions();
-
-	//kalloc_init();
-	//kalloc_test();
-
-	//kalloc_slab_test();
-	//kalloc_cache_test();
-	mm_test();
+	mm_init();
 	kalloc_init();
+
+	ll_test();
+	kalloc_slab_test();
+	kalloc_cache_test();
+	mm_test();
 	kalloc_test();
 
 	DEBUG("--- KERNEL END ---");

@@ -10,6 +10,7 @@
 
 EARLY_DATA(static uint64_t *high_l0_entry);
 EARLY_DATA(static uint64_t *low_l0_entry);
+EARLY_DATA(static unsigned int early_init_done);
 
 EARLY_TEXT static low_map_entry(uint64_t addr, uint64_t attrs)
 {
@@ -44,42 +45,12 @@ EARLY_TEXT static low_map_entry(uint64_t addr, uint64_t attrs)
     }
 }
 
-EARLY_TEXT int early_mmu_init(uint32_t phy_mem_size, uint32_t vc_mem_start, uint32_t vc_mem_size)
+EARLY_TEXT void early_mmu_enable()
 {
-    uint32_t vc_block_size = vc_mem_size / MMU_LEVEL1_BLOCKSIZE;
-    uint64_t attr = 0;
-    uint64_t addr = 0;
-    uint64_t reg = 0;
     uint64_t r = 0;
     uint64_t id = 0;
 
-    uint64_t * low_l1_entry;
-
-    low_l0_entry = (uint64_t *)mm_earlypage_alloc(1);
-    low_l1_entry = (uint64_t *)mm_earlypage_alloc(1);
-    early_memset(low_l0_entry, 0, PAGE_SIZE);
-    early_memset(low_l1_entry, 0, PAGE_SIZE);
-
-    low_l0_entry[0] = PT_SECURE | (uint64_t)low_l1_entry | PT_ENTRY;
-    
-    uint64_t vc_ram_start = vc_mem_start / MMU_LEVEL1_BLOCKSIZE;
-    for (uint64_t i = 0; i < vc_ram_start; i++) {
-        low_map_entry(i * MMU_LEVEL1_BLOCKSIZE, PT_MEM_ATTR(MT_NORMAL) | PT_INNER_SHAREABLE);
-    }
-
-    uint64_t vc_ram_end = (MMIO_BASE) / MMU_LEVEL1_BLOCKSIZE;
-    for (uint64_t i = vc_ram_start; i < vc_ram_end; i++) {
-        low_map_entry(i * MMU_LEVEL1_BLOCKSIZE, PT_MEM_ATTR(MT_NORMAL_NC));
-    }
-
-    uint64_t vc_mem_end = ((vc_mem_size - (MMIO_BASE - vc_mem_start)) + MMIO_BASE) / MMU_LEVEL1_BLOCKSIZE;
-    for (uint64_t i = vc_ram_end; i < vc_mem_end; i++) {
-        low_map_entry(i * MMU_LEVEL1_BLOCKSIZE, PT_MEM_ATTR(MT_DEVICE_NGNRNE));
-    }
-    
-    // Full system data barrier, make sure all writes are commited
-    asm volatile ("dsb  sy");
-    // first, set Memory Attributes array, indexed by PT_MEM, PT_DEV, PT_NC in our example
+    // first, set Memory Attributes array, indexed by PT_MEM, PT_DEV, PT_NC
     r = MAIR1_VAL;
 
     AARCH64_MSR(mair_el1, r);
@@ -122,6 +93,38 @@ EARLY_TEXT int early_mmu_init(uint32_t phy_mem_size, uint32_t vc_mem_start, uint
     AARCH64_MSR(sctlr_el1, r);
  
     asm volatile ("isb");
+}
+
+EARLY_TEXT int early_mmu_init(mmu_mem_map_t * phys_mem_map, uint32_t phys_mem_size, uint32_t vc_mem_start, uint32_t vc_mem_size)
+{
+    uint32_t vc_block_size = vc_mem_size / MMU_LEVEL1_BLOCKSIZE;
+    uint64_t attr = 0;
+    uint64_t addr = 0;
+    uint64_t reg = 0;
+    uint64_t r = 0;
+    uint64_t id = 0;
+    uint64_t * low_l1_entry;
+
+    low_l0_entry = (uint64_t *)mm_earlypage_alloc(1);
+    low_l1_entry = (uint64_t *)mm_earlypage_alloc(1);
+    early_memset(low_l0_entry, 0, PAGE_SIZE);
+    early_memset(low_l1_entry, 0, PAGE_SIZE);
+
+    //T his first level entry that will cover the entire physical memory space
+    low_l0_entry[0] = PT_SECURE | (uint64_t)low_l1_entry | PT_ENTRY;
+    
+    // Map the physical ram space with the correct memory attributes that we configure in the mmu
+    for (int i = 0; i < EARLY_MEM_MAP_ENTRY_NUM; i++) {
+        uint64_t mem_end = (phys_mem_map[i].start_addr + phys_mem_map[i].size) / MMU_LEVEL1_BLOCKSIZE;
+        
+        for (uint64_t block_addr = phys_mem_map[i].start_addr / MMU_LEVEL1_BLOCKSIZE; block_addr < mem_end; block_addr++) {
+            low_map_entry(block_addr * MMU_LEVEL1_BLOCKSIZE, phys_mem_map[i].attrs);
+        }
+    }
+    
+    // Full system data barrier, make sure all writes are commited
+    asm volatile ("dsb  sy");
+    early_mmu_enable();
 
     return 0;
 }
@@ -129,11 +132,25 @@ EARLY_TEXT int early_mmu_init(uint32_t phy_mem_size, uint32_t vc_mem_start, uint
 EARLY_TEXT void early_init()
 {
     uint32_t mem_base_addr, mem_size, vc_base_addr, vc_mem_size;
+    mmu_mem_map_t * phys_mem_map;
 
     mm_early_init();
 
     early_get_mem_size(&mem_base_addr, &mem_size, MAILBOX_TAG_GET_ARM_MEMORY);
 	early_get_mem_size(&vc_base_addr, &vc_mem_size, MAILBOX_TAG_GET_VC_MEMORY);
 
-    early_mmu_init(mem_size, vc_base_addr, vc_mem_size);
+    phys_mem_map = mm_early_init_memmap(mem_size, vc_base_addr, vc_mem_size);
+    early_mmu_init(phys_mem_map, mem_size, vc_base_addr, vc_mem_size);
+
+    asm volatile ("dsb  sy");
+    early_init_done = 1;
+}
+
+EARLY_TEXT void early_core_init()
+{
+    while (!early_init_done) {
+        asm volatile ("nop");
+    }
+
+    early_mmu_enable();
 }

@@ -5,12 +5,6 @@
 #include <stddef.h>
 #include <common/bits.h>
 
-#define MT_DEVICE_NGNRNE	0
-#define MT_DEVICE_NGNRE		1
-#define MT_DEVICE_GRE		2
-#define MT_NORMAL_NC		3
-#define MT_NORMAL		    4
-
 #define PAGE_SIZE 4096
 #define PAGE_OFF 12
 #define PAGE_MASK ~(PAGE_SIZE - 1)
@@ -55,6 +49,11 @@
 #define ADDR_MASK (BITS(39) & PAGE_MASK)
 #define PAGE_INDEX_FROM_PTR(PTR) ((uint64_t)(PTR) / PAGE_SIZE)
 
+#define MT_DEVICE_NGNRNE	0 //Device memory, Non ggather, Non reordering, Non early write acknowledgment
+#define MT_DEVICE_NGNRE		1 //Device memory, Non gathering, Non reordering, Early write acknowledgment
+#define MT_DEVICE_GRE		2 //Device memory, Gather (multiple accesses are allowed to be batched), Reordering, Early write acknowledgment
+#define MT_NORMAL_NC		3 //Normal memory, Inner non cacheable, outer non cacheable
+#define MT_NORMAL		    4 //Normal memory, outer write-back non-transient, Inner write-back non transient
 
 #define MAIR1_VAL ((0x00ul << (MT_DEVICE_NGNRNE * 8)) |\
                  (0x04ul << (MT_DEVICE_NGNRE * 8)) |\
@@ -84,6 +83,12 @@
 					 (0b01LL << 8)   |  /* IRGN0=1 write back .. options 00 = Non-cacheable, 01 = Write back cacheable, 10 = Write thru cacheable, 11 = Write Back Non-cacheable */\
 					 (0b0LL  << 7)   |  /* EPD0  ... Translation table walk disable for translations using TTBR0_EL1  0 = walk, 1 = generate fault */\
 					 (25LL   << 0) ) 	/* T0SZ=25 (512G)  ... The region size is 2 POWER (64-T0SZ) bytes */
+
+typedef struct mmu_mem_map {
+    uint64_t start_addr;
+    size_t size;
+    uint64_t attrs;
+} mmu_mem_map_t;
 
 /*
 typedef union {
@@ -123,14 +128,7 @@ typedef union {
 } VMSAv8_64_DESCRIPTOR;
 */
 
-void align_early_mem(size_t size);
-uint8_t * early_data_alloc(size_t size);
-uint8_t * early_page_data_alloc(unsigned int page_num);
-void *mm_earlypage_alloc(int num_pages);
-int mm_earlypage_shrink(int num_pages);
-int mm_early_is_intialized();
-int mm_early_init();
-
+int mmu_map_entry(uint64_t *phys_addr, uint64_t *virt_addr, uint64_t attributes);
 int mmu_init(uint32_t phy_mem_size, uint32_t vc_mem_start, uint32_t vc_mem_size);
 
 #endif
