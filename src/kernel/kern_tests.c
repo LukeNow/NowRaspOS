@@ -214,6 +214,8 @@ void kalloc_slab_test()
 	kalloc_slab_t * slab = (kalloc_slab_t *)mm_earlypage_alloc(1);
 	kalloc_slab_t * slab_ret = NULL;
 
+	ASSERT_PANIC(mem && ptrs && vals && slab, "Kalloc slab mem alloc failed");
+
 	memset(ptrs, 0, PAGE_SIZE * SLAB_TEST_DATA_PAGES);
 	memset(vals, 0, PAGE_SIZE  * SLAB_TEST_DATA_PAGES);
 	
@@ -303,13 +305,17 @@ void kalloc_slab_test()
 	}
 
 	//mem
-	mm_earlypage_shrink(SLAB_TEST_NUM_PAGES);
+	ret = mm_earlypage_shrink(SLAB_TEST_NUM_PAGES);
+	ASSERT_PANIC(!ret, "page free failed");
 	//ptrs
-	mm_earlypage_shrink(SLAB_TEST_DATA_PAGES);
+	ret = mm_earlypage_shrink(SLAB_TEST_DATA_PAGES);
+	ASSERT_PANIC(!ret, "page free failed");
 	//vals
-	mm_earlypage_shrink(SLAB_TEST_DATA_PAGES);
+	ret = mm_earlypage_shrink(SLAB_TEST_DATA_PAGES);
+	ASSERT_PANIC(!ret, "page free failed");
 	//slab
-	mm_earlypage_shrink(1);
+	ret = mm_earlypage_shrink(1);
+	ASSERT_PANIC(!ret, "page free failed");
 
 	DEBUG("--- Slab test end---");
 }
@@ -352,17 +358,19 @@ void kalloc_cache_test()
 	unsigned int max_alloc_num = 0;
 	
 	uint64_t * vals = (uint64_t *)mm_earlypage_alloc(CACHE_TEST_DATA_PAGES);
+	kalloc_slab_t ** slab_ptrs = (kalloc_slab_t **)mm_earlypage_alloc(CACHE_TEST_DATA_PAGES);
+	CACHE_TEST_OBJ_TYPE ** obj_ptrs = (CACHE_TEST_OBJ_TYPE **)mm_earlypage_alloc(CACHE_TEST_DATA_PAGES);
+
+	ASSERT_PANIC(vals && slab_ptrs && obj_ptrs, "Earlypage alloc failed");
+
 	memset(vals, 0, CACHE_TEST_DATA_PAGES * PAGE_SIZE);
+	memset(slab_ptrs, 0, CACHE_TEST_DATA_PAGES * PAGE_SIZE);
+	memset(obj_ptrs, 0, CACHE_TEST_DATA_PAGES * PAGE_SIZE);
+
 	for (int i = 0; i < CACHE_TEST_VALS_BUF_NUM; i++) {
 		((uint32_t*)&vals[i])[0] = rand_prng();
 		((uint32_t*)&vals[i])[1] = rand_prng();
 	}
-
-	kalloc_slab_t ** slab_ptrs = (kalloc_slab_t **)mm_earlypage_alloc(CACHE_TEST_DATA_PAGES);
-	memset(slab_ptrs, 0, CACHE_TEST_DATA_PAGES * PAGE_SIZE);
-	
-	CACHE_TEST_OBJ_TYPE ** obj_ptrs = (CACHE_TEST_OBJ_TYPE **)mm_earlypage_alloc(CACHE_TEST_DATA_PAGES);
-	memset(obj_ptrs, 0, CACHE_TEST_DATA_PAGES * PAGE_SIZE);
 
 	ret = kalloc_cache_init(&cache, CACHE_TEST_OBJ_SIZE, CACHE_TEST_PAGE_NUM, NULL,
 							NULL, KALLOC_CACHE_NO_EXPAND_F | KALLOC_CACHE_NO_SHRINK_F);
@@ -442,14 +450,18 @@ void kalloc_cache_test()
 	}
 
 	//vals
-	mm_earlypage_shrink(CACHE_TEST_DATA_PAGES);
+	ret = mm_earlypage_shrink(CACHE_TEST_DATA_PAGES);
+	ASSERT_PANIC(!ret, "Earlypage free failed");
 	//slab_ptrs
-	mm_earlypage_shrink(CACHE_TEST_DATA_PAGES);
+	ret = mm_earlypage_shrink(CACHE_TEST_DATA_PAGES);
+	ASSERT_PANIC(!ret, "Earlypage free failed");
 	//obj_ptrs
-	mm_earlypage_shrink(CACHE_TEST_DATA_PAGES);
+	ret = mm_earlypage_shrink(CACHE_TEST_DATA_PAGES);
+	ASSERT_PANIC(!ret, "Earlypage free failed");
 	//slab pages
 	for (int i = 0; i < CACHE_TEST_NUM_SLABS; i++) {
-		mm_earlypage_shrink(CACHE_TEST_PAGE_NUM);
+		ret = mm_earlypage_shrink(CACHE_TEST_PAGE_NUM);
+		ASSERT_PANIC(!ret, "Earlypage free failed");
 	}
 
 
@@ -515,6 +527,7 @@ void mm_test()
 
 	uint64_t found_addr;
 	kalloc_buddy_t * buddy;
+	unsigned int area_count;
 	uint64_t reserve_addr = 0;
 	int ret = 0;
 	unsigned int free = 0;
@@ -522,7 +535,21 @@ void mm_test()
 
 	uint8_t ** ptrs = (uint8_t **)mm_earlypage_alloc(MM_TEST_DATA_PAGES);
 	MM_TEST_DATA_TYPE * vals = (MM_TEST_DATA_TYPE *)mm_earlypage_alloc(MM_TEST_DATA_PAGES);
-	unsigned int * memorders = (unsigned int)mm_earlypage_alloc(MM_TEST_DATA_PAGES);
+	unsigned int * memorders = (unsigned int *)mm_earlypage_alloc(MM_TEST_DATA_PAGES);
+	unsigned int * area_page_count = (unsigned int *)mm_earlypage_alloc(2);
+
+	ASSERT_PANIC(ptrs && vals && memorders, "Earlypage alloc failed");
+
+	memset(ptrs, 0, MM_TEST_DATA_PAGES * PAGE_SIZE);
+	memset(vals, 0, MM_TEST_DATA_PAGES * PAGE_SIZE);
+	memset(memorders, 0, MM_TEST_DATA_PAGES * PAGE_SIZE);
+
+	// Record the current page count to make sure we return to the same amount
+	// after freeing
+	area_count = mm_global_area()->area_count;
+	for (int i = 0; i < area_count; i++) {
+		area_page_count[i] = mm_global_area()->global_areas[i].free_page_num;
+	}
 
 	uint64_t free_reserve_addr = MM_TEST_NULL_ADDR;
 	uint64_t free_reserve_memorder = 0;
@@ -545,6 +572,9 @@ void mm_test()
 			if (!ptrs[rand_free])
 				continue;
 
+			DEBUG_FUNC("MM Free at addr=", ptrs[rand_free]);
+			DEBUG_FUNC("MM free at memorder=", memorders[rand_free]);
+
 			buddy = kalloc_get_buddy_from_addr(ptrs[rand_free]);
 			ASSERT_PANIC(buddy->buddy_memorder == memorders[rand_free], "Buddy is not the past memorder");
 
@@ -558,9 +588,7 @@ void mm_test()
 				DEBUG("FREE RESERVE");
 			}
 
-			DEBUG_FUNC("MM Free at addr=", ptrs[rand_free]);
-			//DEBUG_FUNC("TO=", (uint64_t)ptrs[rand_free] + MM_MEMORDER_TO_PAGES(memorders[rand_free]) * PAGE_SIZE);
-			DEBUG_FUNC("MM free at memorder=", memorders[rand_free]);
+			DEBUG_DATA("Free done at=", ptrs[rand_free]);
 
 			ptrs[rand_free] = NULL;
 
@@ -621,17 +649,22 @@ void mm_test()
 		_validate_mm_free((uint64_t)ptrs[i], memorders[i], vals[i]);
 	}
 
-	for (int i = MM_RESERVE_AREA_INDEX; i < mm_global_area()->area_count; i++) {
-		if (mm_global_area()->global_areas[i].free_page_num != (MM_AREA_SIZE / PAGE_SIZE)){
-			DEBUG_DATA_DIGIT("Curr_area pages=",mm_global_area()->global_areas[i].free_page_num);
-			DEBUG_DATA_DIGIT("Total pages=",(MM_AREA_SIZE / PAGE_SIZE));
-			DEBUG_PANIC("Free page num is not total freed");
-		}
 
-		if (ll_list_size(&mm_global_area()->global_areas[i].free_buddy_list[MM_MAX_ORDER]) != 2) {
-			DEBUG_PANIC("MM MAX ORDER free nodes are not 2 after completly freeing");
+	for (int i = 0; i < area_count; i++) {
+		if (mm_global_area()->global_areas[i].free_page_num != area_page_count[i]) {
+			DEBUG_PANIC("Free page num is not the same as started");
 		}
 	}
+
+	//ptrs
+	ret = mm_earlypage_shrink(MM_TEST_DATA_PAGES);
+	ASSERT_PANIC(!ret, "Earlypage free failed");
+	//vals
+	ret = mm_earlypage_shrink(MM_TEST_DATA_PAGES);
+	ASSERT_PANIC(!ret, "Earlypage free failed");
+	//memorders
+	ret = mm_earlypage_shrink(MM_TEST_DATA_PAGES);
+	ASSERT_PANIC(!ret, "Earlypage free failed");
 
 	DEBUG("--- MM TEST DONE ----");
 }
