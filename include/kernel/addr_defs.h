@@ -19,6 +19,5 @@ EARLY_DATA(extern void __bss_start());
 EARLY_DATA(extern void __bss_end());
 EARLY_DATA(extern void __early_page_start());
 EARLY_DATA(extern void __early_page_end());
-EARLY_DATA(extern void _start());
 
 #endif
