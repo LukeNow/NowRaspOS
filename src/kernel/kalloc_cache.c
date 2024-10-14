@@ -14,7 +14,7 @@ static int add_remove_cache_list(ll_head_t  * to_cache_list, ll_head_t * from_ca
     KALLOC_SLAB_VERIFY(slab);
 
     if (from_cache_list)  {
-        if (ll_delete_node(from_cache_list, &slab->node)) {
+        if (ll_delete_node(from_cache_list, (ll_node_t *)&slab->node)) {
             DEBUG_THROW("Error in removing slab from free list");
             return 1;
         }
@@ -22,8 +22,8 @@ static int add_remove_cache_list(ll_head_t  * to_cache_list, ll_head_t * from_ca
 
     if (to_cache_list) {
         // Initialize which list we are in in the ll_nodes.data
-        ll_node_init(&slab->node, to_cache_list, SLL_NODE_T);
-        if (ll_push_list(to_cache_list, &slab->node))  {
+        ll_node_init((ll_node_t *)&slab->node, to_cache_list, SLL_NODE_T);
+        if (ll_push_list(to_cache_list, (ll_node_t *)&slab->node))  {
             DEBUG_THROW("Error in adding slab to full list");
             return 1;
         }
@@ -51,7 +51,8 @@ static kalloc_slab_t * get_free_slab(kalloc_cache_t * cache)
     kalloc_slab_t * slab;
     sll_node_t * slab_node;
 
-    if (!(slab_node = ll_peek_first(&cache->partial_list)) && !(slab_node = ll_peek_first(&cache->free_list)))  {
+    if (!(slab_node = (sll_node_t *)ll_peek_first(&cache->partial_list)) &&
+        !(slab_node = (sll_node_t *)ll_peek_first(&cache->free_list)))  {
         DEBUG("No free slabs in both partial and free list found");
         return NULL;
     }
@@ -168,7 +169,7 @@ kalloc_slab_t * kalloc_cache_add_slab_pages(kalloc_cache_t * cache, void * page_
         DEBUG_THROW("Slab returned is NULL");
         return slab;
     }
-    
+
     if (kalloc_cache_add_slab(cache, slab)) {
         return NULL;
     }
@@ -181,7 +182,7 @@ kalloc_slab_t * kalloc_cache_add_slab_pages(kalloc_cache_t * cache, void * page_
 int kalloc_cache_remove_slab(kalloc_cache_t * cache, kalloc_slab_t * slab)
 {
     unsigned int page_index;
-    ll_node_t * curr_list;
+    ll_head_t * curr_list;
     int ret = 0;
 
     KALLOC_SLAB_VERIFY(slab);

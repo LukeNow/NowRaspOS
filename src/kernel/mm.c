@@ -137,13 +137,13 @@ mm_area_t * mm_area_from_addr(uint64_t addr)
 }
 
 mm_area_t * mm_find_free_area(unsigned int memorder)
-{   
-    ll_node_t * node;
+{
+    sll_node_t * node;
     mm_global_area_t * global_area = mm_global_area();
     for (unsigned int free_memorder = memorder; free_memorder < MM_MAX_ORDER + 1; free_memorder++) {
         node = MM_GLOBAL_AREA_FREE_AREA(free_memorder);
         if (node)
-            return (mm_area_t*)node->sll.data;
+            return (mm_area_t*)node->data;
     }
 
     return NULL;
@@ -160,10 +160,10 @@ int mm_reserve_area(unsigned int area_index)
 }
 
 int mm_area_init(mm_global_area_t * global_area, mm_area_t * area, unsigned int start_page_index)
-{   
+{
     kalloc_buddy_t * sibling;
     unsigned int buddy_num;
-    
+
     ASSERT_PANIC(global_area && area, "MM area init nulls found");
     memset(area, 0, sizeof(mm_area_t));
 
@@ -179,7 +179,7 @@ int mm_area_init(mm_global_area_t * global_area, mm_area_t * area, unsigned int 
     for (unsigned int i = 0; i < MM_MAX_ORDER + 1; i++) {
         /* Init the list to keep track of free buddys in this area. */
         ll_head_init(&area->free_buddy_list[i], LIST_NODE_T);
-        ll_node_init(&area->global_area_nodes[i], (void*)area, SLL_NODE_T);
+        ll_node_init((ll_node_t *)&area->global_area_nodes[i], (void*)area, SLL_NODE_T);
     }
 
     // Init the first two buddies that make up the 8MB area size range
@@ -193,7 +193,7 @@ int mm_area_init(mm_global_area_t * global_area, mm_area_t * area, unsigned int 
 /* Reserve the early memory up to the early heap top, which should be the
  * top of the early memory space, with all code and data being placed below it. */
 static void mm_reserve_early_mem(mmu_mem_map_t * phys_mem_map, uint64_t early_heap_top)
-{  
+{
     int ret;
     uint64_t device_mem_start;
     mm_area_t * last_area;
@@ -262,7 +262,7 @@ void mm_init()
     /* Init the global area struct. */
     memset(&global_area, 0, sizeof(mm_global_area_t));
     spinlock_init(&global_area.lock);
-    
+
     for (int i = 0; i < MM_MAX_ORDER + 1; i++) {
         ll_head_init(&global_area.free_areas_list[i], SLL_NODE_T);
     }

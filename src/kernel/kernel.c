@@ -1,6 +1,5 @@
 #include <stddef.h>
 #include <stdint.h>
- 
 #include <kernel/uart.h>
 #include <kernel/mbox.h>
 #include <kernel/mmu.h>
@@ -70,7 +69,7 @@ void kernel_child_main(uint64_t mpidr_el1)
 		CYCLE_WAIT(5);
 	}
 
-	atomic_add(&core_ready, 1);
+	atomic_add((uint64_t *)&core_ready, 1);
 
 	irq_init();
 

@@ -41,7 +41,7 @@ void * poolalloc_alloc(poolalloc_t * pool)
     unsigned int bucket_index;
     unsigned int entry_index = AL_BTREE_NULL_INDEX;
     al_btree_scan_t scan;
-    
+
     if (!pool || !pool->object_buffer) {
         ASSERT(0);
         return NULL;
@@ -55,7 +55,7 @@ void * poolalloc_alloc(poolalloc_t * pool)
             continue;
         }
 
-        entry_index = al_btree_atomic_add_node(bucket, &scan, -1);
+        entry_index = al_btree_atomic_add_node(&bucket->btree, &scan, -1);
         if (entry_index != AL_BTREE_NULL_INDEX) {
             break;
         }
@@ -73,7 +73,7 @@ void * poolalloc_alloc(poolalloc_t * pool)
 
 
 int poolalloc_free(poolalloc_t * pool, void * object)
-{   
+{
     int ret = 0;
     unsigned int bucket_index;
     unsigned int entry_index;
@@ -95,5 +95,5 @@ int poolalloc_free(poolalloc_t * pool, void * object)
 
     ASSERT(entry_index < POOLALLOC_ARRAY_INDEX_TO_AL_INDEX(POOLALLOC_OBJECTS_PER_BUCKET));
 
-    return al_btree_atomic_remove_node(&pool->buckets[bucket_index], &scan, entry_index);
+    return al_btree_atomic_remove_node(&pool->buckets[bucket_index].btree, &scan, entry_index);
 }

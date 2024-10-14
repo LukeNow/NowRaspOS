@@ -12,7 +12,7 @@ EARLY_DATA(static uint64_t *high_l0_entry);
 EARLY_DATA(static uint64_t *low_l0_entry);
 EARLY_DATA(static unsigned int early_init_done);
 
-EARLY_TEXT static low_map_entry(uint64_t addr, uint64_t attrs)
+EARLY_TEXT static void low_map_entry(uint64_t addr, uint64_t attrs)
 {
     uint64_t entry_l1;
     uint64_t entry_l0;

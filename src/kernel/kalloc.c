@@ -80,7 +80,8 @@ static unsigned int cache_expand(kalloc_cache_t * cache, unsigned int entry_num)
     kalloc_slab_t * slab;
     void * slab_mem;
 
-    slab_mem = kalloc_page_alloc_pages(mm_pages_to_memorder(entries[entry_num].slab_init_page_num), 0);
+    slab_mem = (void *)kalloc_page_alloc_pages(mm_pages_to_memorder(entries[entry_num].slab_init_page_num), 0);
+
     ASSERT_PANIC(slab_mem, "Slab mem alloc failed");
 
     slab = kalloc_cache_add_slab_pages(entries[entry_num].cache, slab_mem, 

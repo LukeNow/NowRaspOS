@@ -37,7 +37,7 @@ unsigned int math_is_power2_64(uint64_t num)
         }
 
         mask <<= 1;
-    }   
+    }
 
     // We shouldnt reach here
     ASSERT(0);

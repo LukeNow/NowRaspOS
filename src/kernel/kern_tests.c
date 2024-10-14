@@ -12,16 +12,17 @@
 #include <common/assert.h>
 #include <kernel/kalloc_page.h>
 #include <kernel/early_mm.h>
+#include <common/math.h>
+#include <common/rand.h>
 
 #define LL_TEST_NUM 6
 
 static void ll_info_add(ll_head_t * head, ll_node_t * nodes, void * data, unsigned int index)
-{	
+{
 	int ret = 0;
 	ll_node_init(&nodes[index], data, head->type);
 	ret = ll_push_list(head, &nodes[index]);
 	ASSERT_PANIC(!ret, "Ll push list failed");
-	DEBUG_DATA("Added node at=", &nodes[index]);
 }
 
 static void list_test()
@@ -33,30 +34,30 @@ static void list_test()
 	list_node_t node1;
 	list_node_t node2;
 	unsigned int i = 0;
-	
+
 	memset(&nodes[0], 0, sizeof(list_node_t) * LL_TEST_NUM);
 
 	ll_head_init(&head, LIST_NODE_T);
-	
+
 	for (unsigned int i = 0; i < LL_TEST_NUM; i++) {
 		ll_info_add(&head, &nodes[0], NULL, i);
-
+		/*
 		for (unsigned int j = 0; j < LL_TEST_NUM; j++) {
 			if (nodes[j].list.next) {
 				DEBUG_DATA("next=", nodes[j].list.next);
-			} else 
+			} else
 				break;
-		}
+		}*/
 	}
 
-	ll_push_list(&head, &node1);
-	ll_push_list(&head, &node2);
+	ll_push_list(&head, (ll_node_t *)&node1);
+	ll_push_list(&head, (ll_node_t *)&node2);
 
-	ASSERT_PANIC(node1.next == &node2, "Inorder push failed");
-	ll_delete_node(&head, &node1);
-	ASSERT_PANIC(head.last == &node2, "Head is not pointing at last");
-	ll_delete_node(&head, &node2);
-	ASSERT_PANIC(head.last == &nodes[LL_TEST_NUM - 1], "Head is not pointing at last"); 
+	ASSERT_PANIC((list_node_t *)node1.next == &node2, "Inorder push failed");
+	ll_delete_node(&head, (ll_node_t *)&node1);
+	ASSERT_PANIC(head.last == (ll_node_t *)&node2, "Head is not pointing at last");
+	ll_delete_node(&head, (ll_node_t *)&node2);
+	ASSERT_PANIC(head.last == &nodes[LL_TEST_NUM - 1], "Head is not pointing at last");
 	ASSERT_PANIC(head.next == &nodes[0], "Head is not pointing at first");
 
 	i = 0;
@@ -69,13 +70,14 @@ static void list_test()
 	ASSERT_PANIC(head.count == 0, "Head count is not zero");
 	DEBUG("Delete done");
 
+	/*
 	i = 0;
 	LL_ITER_LIST(&head, p) {
 		DEBUG_DATA_DIGIT("list i = ", i);
 		DEBUG_DATA("ptr=", p);
 		DEBUG_DATA("next", p->list.next);
 		i ++;
-	}
+	} */
 
 	DEBUG("---LIST LL DONE ---");
 }
@@ -90,45 +92,46 @@ void dll_test()
 	ll_node_t node1;
 	ll_node_t node2;
 	unsigned int i = 0;
-	
+
 	memset(&nodes[0], 0, sizeof(list_node_t) * LL_TEST_NUM);
 
 	ll_head_init(&head, DLL_NODE_T);
-	
-	for (unsigned int i = 0; i < LL_TEST_NUM; i++) {
-		ll_info_add(&head, &nodes[0], i, i);
 
+	for (unsigned int i = 0; i < LL_TEST_NUM; i++) {
+		ll_info_add(&head, &nodes[0], (void*)i, i);
+
+		/*
 		for (unsigned int j = 0; j < LL_TEST_NUM; j++) {
 			if (nodes[j].list.next) {
 				DEBUG_DATA("next=", nodes[j].list.next);
 				DEBUG_DATA("data=", nodes[j].sll.data);
 				DEBUG_DATA("last=", nodes[j].dll.last);
-			} else 
+			} else
 				break;
-		}
+		} */
 	}
 
-	ASSERT_PANIC(head.next == &nodes[0], "Head is not pointing at first4"); 
-	
+	ASSERT_PANIC(head.next == &nodes[0], "Head is not pointing at first4");
+
 	ll_push_list(&head, &node1);
 	ll_push_list(&head, &node2);
 
 	//DEBUG_DATA("head next=", head.next);
 
-	ASSERT_PANIC(head.next == &nodes[0], "Head is not pointing at first1"); 
-	ASSERT_PANIC(node1.dll.next == &node2, "Inorder push failed");
-	ASSERT_PANIC(node2.dll.last == &node1, "Inorder push failed");
+	ASSERT_PANIC(head.next == &nodes[0], "Head is not pointing at first1");
+	ASSERT_PANIC((ll_node_t *)node1.dll.next == &node2, "Inorder push failed");
+	ASSERT_PANIC((ll_node_t *)node2.dll.last == &node1, "Inorder push failed");
 	ll_delete_node(&head, &node1);
-	ASSERT_PANIC(head.next == &nodes[0], "Head is not pointing at first2"); 
+	ASSERT_PANIC((ll_node_t *)head.next == &nodes[0], "Head is not pointing at first2");
 	ASSERT_PANIC(head.last == &node2, "Head is not pointing at last");
-	ASSERT_PANIC(node2.dll.last == &nodes[LL_TEST_NUM - 1], "Inorder push failed");
-	ASSERT_PANIC(nodes[LL_TEST_NUM - 1].dll.next == &node2, "Inorder push failed");
+	ASSERT_PANIC((ll_node_t *)node2.dll.last == &nodes[LL_TEST_NUM - 1], "Inorder push failed");
+	ASSERT_PANIC((ll_node_t *)nodes[LL_TEST_NUM - 1].dll.next == &node2, "Inorder push failed");
 	ll_delete_node(&head, &node2);
-	ASSERT_PANIC(head.next == &nodes[0], "Head is not pointing at first3"); 
+	ASSERT_PANIC(head.next == &nodes[0], "Head is not pointing at first3");
 	ASSERT_PANIC(head.last == &nodes[LL_TEST_NUM - 1], "Head is not pointing at last");
-	ASSERT_PANIC(head.next == &nodes[0], "Head is not pointing at first"); 
+	ASSERT_PANIC(head.next == &nodes[0], "Head is not pointing at first");
 
-	DEBUG_DATA("head next=", head.next);
+	//DEBUG_DATA("head next=", head.next);
 	i = 0;
 	LL_ITER_LIST(&head, p) {
 		ASSERT_PANIC(head.next == &nodes[i], "Inorder delete failed");
@@ -137,23 +140,22 @@ void dll_test()
 	}
 
 	ASSERT_PANIC(head.count == 0, "Head count is not zero");
-	DEBUG("Delete done");
+	//DEBUG("Delete done");
 
+	/*
 	i = 0;
 	LL_ITER_LIST(&head, p) {
 		DEBUG_DATA_DIGIT("list i = ", i);
 		DEBUG_DATA("ptr=", p);
 		DEBUG_DATA("next", p->list.next);
 		i ++;
-	}
-
+	} */
 }
 
 void ll_test()
 {
 	list_test();
 	dll_test();
-	//DEBUG_PANIC("END");
 }
 
 void math_test()
@@ -187,7 +189,7 @@ int _kalloc_slab_verify(kalloc_slab_t * slab, unsigned int index, uint32_t expec
 {
 	uint32_t * ptr = (uint32_t*)((uint8_t *)slab->mem_ptr + slab->obj_size * index);
 	uint32_t found = *ptr;
-	DEBUG_FUNC("Addr checked at addr=", ptr);
+	DEBUG_FUNC("Addr checked at addr=", (uint64_t)ptr);
 	DEBUG_FUNC("Expected val=", expected);
 	DEBUG_FUNC("Found val=", found);
 	if (found != expected)
@@ -197,13 +199,13 @@ int _kalloc_slab_verify(kalloc_slab_t * slab, unsigned int index, uint32_t expec
 }
 
 void kalloc_slab_test()
-{	
+{
 	DEBUG("---Slab test start---");
 
 	#define SLAB_TEST_NUM_PAGES 4
 	#define SLAB_TEST_DATA_PAGES SLAB_TEST_NUM_PAGES * 6
 	#define SLAB_TEST_ALLOC_WEIGHT 5
-	
+
 	int alloc;
 	int free;
 	int rand;
@@ -218,10 +220,10 @@ void kalloc_slab_test()
 
 	memset(ptrs, 0, PAGE_SIZE * SLAB_TEST_DATA_PAGES);
 	memset(vals, 0, PAGE_SIZE  * SLAB_TEST_DATA_PAGES);
-	
+
 	unsigned int max_num = kalloc_slab_obj_num(sizeof(uint32_t), PAGE_SIZE * SLAB_TEST_NUM_PAGES);
 	memset(slab, kalloc_slab_struct_size(max_num, sizeof(uint32_t)), 0);
-	
+
 	for (unsigned int i = 0; i < max_num; i++) {
 		vals[i] = rand_prng();
 	}
@@ -321,7 +323,7 @@ void kalloc_slab_test()
 }
 
 void _kalloc_verify_cache_obj(uint64_t * obj_addr, uint64_t expected)
-{	
+{
 	int fail = 0;
 	if (*obj_addr != expected)  {
 		fail = 1;
@@ -356,7 +358,7 @@ void kalloc_cache_test()
 	kalloc_cache_t cache;
 	kalloc_slab_t * slab;
 	unsigned int max_alloc_num = 0;
-	
+
 	uint64_t * vals = (uint64_t *)mm_earlypage_alloc(CACHE_TEST_DATA_PAGES);
 	kalloc_slab_t ** slab_ptrs = (kalloc_slab_t **)mm_earlypage_alloc(CACHE_TEST_DATA_PAGES);
 	CACHE_TEST_OBJ_TYPE ** obj_ptrs = (CACHE_TEST_OBJ_TYPE **)mm_earlypage_alloc(CACHE_TEST_DATA_PAGES);
@@ -420,7 +422,7 @@ void kalloc_cache_test()
 
 			if (!obj_ptrs[rand_index])
 				continue;
-			
+
 			_kalloc_verify_cache_obj(obj_ptrs[rand_index], vals[rand_index]);
 			ret = kalloc_cache_free(&cache, obj_ptrs[rand_index]);
 			ASSERT_PANIC(!ret, "Cache free failed");
@@ -442,7 +444,7 @@ void kalloc_cache_test()
 	for (int i = 0; i < alloc; i++) {
 		if (!obj_ptrs[i])
 			continue;
-		
+
 		_kalloc_verify_cache_obj(obj_ptrs[i], vals[i]);
 		ret = kalloc_cache_free(&cache, obj_ptrs[i]);
 
@@ -484,7 +486,7 @@ void _validate_and_set_mm_alloc(uint64_t addr, unsigned int memorder, uint32_t s
 	uint64_t end_addr = addr + (page_num * PAGE_SIZE);
 
 	for (uint64_t curr_addr = addr; curr_addr < end_addr; curr_addr += sizeof(uint32_t)) {
-		*((uint32_t *)curr_addr) = set_val; 
+		*((uint32_t *)curr_addr) = set_val;
 	}
 }
 
@@ -514,7 +516,7 @@ void _validate_mm_free(uint64_t addr, unsigned int memorder, MM_TEST_DATA_TYPE e
 
 /* run test in debug only as we will be writing directly to memory and reserving mem. */
 void mm_test()
-{	
+{
 	DEBUG("--- MM TEST START ----");
 
 	#define MM_TEST_FREE_WEIGHT 3
@@ -566,29 +568,29 @@ void mm_test()
 
 		if (rand_op < MM_TEST_FREE_WEIGHT && alloc > free) {
 			DEBUG("MM TEST FREE");
-			
+
 			int rand_free = rand_prng() % (alloc + 1);
 			//continue;
 			if (!ptrs[rand_free])
 				continue;
 
-			DEBUG_FUNC("MM Free at addr=", ptrs[rand_free]);
+			DEBUG_FUNC("MM Free at addr=", (uint64_t)ptrs[rand_free]);
 			DEBUG_FUNC("MM free at memorder=", memorders[rand_free]);
 
-			buddy = kalloc_get_buddy_from_addr(ptrs[rand_free]);
+			buddy = kalloc_get_buddy_from_addr((uint64_t)ptrs[rand_free]);
 			ASSERT_PANIC(buddy->buddy_memorder == memorders[rand_free], "Buddy is not the past memorder");
 
-			ret = kalloc_page_free_pages(ptrs[rand_free], 0);
+			ret = kalloc_page_free_pages((uint64_t)ptrs[rand_free], 0);
 			ASSERT_PANIC(!ret, "mm_free_pages failed");
 			_validate_mm_free((uint64_t)ptrs[rand_free], memorders[rand_free], vals[rand_free]);
-			
+
 			if ((uint64_t)ptrs[rand_free] < free_reserve_addr) {
 				free_reserve_addr = (uint64_t)ptrs[rand_free];
 				free_reserve_memorder = memorders[rand_free];
 				DEBUG("FREE RESERVE");
 			}
 
-			DEBUG_DATA("Free done at=", ptrs[rand_free]);
+			DEBUG_DATA("Free done at=", (uint64_t)ptrs[rand_free]);
 
 			ptrs[rand_free] = NULL;
 
@@ -599,33 +601,33 @@ void mm_test()
 			if (alloc_op) {
 				DEBUG("MM TEST ALLOC");
 				DEBUG_FUNC("MM alloc at memorder=", rand_memorder);
-				ptrs[alloc] = kalloc_page_alloc_pages(rand_memorder, 0);
+				ptrs[alloc] = (uint8_t *)kalloc_page_alloc_pages(rand_memorder, 0);
 				ASSERT_PANIC(ptrs[alloc], "MM alloc pages failed");
 				memorders[alloc] = rand_memorder;
 
-				if (free_reserve_addr != MM_TEST_NULL_ADDR && 
+				if (free_reserve_addr != MM_TEST_NULL_ADDR &&
 					!RANGES_OVERLAP_INCLUSIVE(free_reserve_addr, MM_MEMORDER_TO_PAGES(free_reserve_memorder) * PAGE_SIZE, 
 									(uint64_t)ptrs[alloc], MM_MEMORDER_TO_PAGES(rand_memorder) * PAGE_SIZE)) {
 					free_reserve_addr = MM_TEST_NULL_ADDR;
 					DEBUG("ALLOC RESERVE");
 				}
 
-				DEBUG_FUNC("ALLOC at addr=", ptrs[alloc]);
+				DEBUG_FUNC("ALLOC at addr=", (uint64_t)ptrs[alloc]);
 				DEBUG_FUNC_DIGIT("ALLOC memorder=", rand_memorder);
 
 				_validate_and_set_mm_alloc((uint64_t)ptrs[alloc], rand_memorder, vals[alloc]);
-			} else {			
+			} else {
 				DEBUG("MM RESERVE");
 				if (free_reserve_addr == MM_TEST_NULL_ADDR)
 					continue;
 
 				DEBUG_FUNC("MM reserve at addr=", free_reserve_addr);
 				DEBUG_FUNC("MM reserve at memorder=", free_reserve_memorder);
-				
+
 				ret = kalloc_page_reserve_pages(free_reserve_addr, free_reserve_memorder, 0);
 				ASSERT_PANIC(!ret, "MM reserve failed");
 
-				ptrs[alloc] = (MM_TEST_DATA_TYPE*)free_reserve_addr;
+				ptrs[alloc] = (uint8_t *)free_reserve_addr;
 				memorders[alloc] = free_reserve_memorder;
 
 				free_reserve_addr = MM_TEST_NULL_ADDR;
@@ -642,9 +644,9 @@ void mm_test()
 	for (unsigned int i = 0; i < alloc; i++) {
 		if (!ptrs[i])
 			continue;
-		buddy = kalloc_get_buddy_from_addr(ptrs[i]);
+		buddy = kalloc_get_buddy_from_addr((uint64_t)ptrs[i]);
 		ASSERT_PANIC(buddy->buddy_memorder == memorders[i], "Buddy is not the past memorder");
-		ret = kalloc_page_free_pages(ptrs[i], 0);
+		ret = kalloc_page_free_pages((uint64_t)ptrs[i], 0);
 		ASSERT_PANIC(!ret, "mm_free_pages failed");
 		_validate_mm_free((uint64_t)ptrs[i], memorders[i], vals[i]);
 	}
@@ -738,7 +740,7 @@ void kalloc_test()
         _validate_kalloc_alloc(ptrs[i], sizes[i], vals[i]);
 
         DEBUG_DATA_DIGIT("freeing size=", sizes[i]);
-        DEBUG_DATA("Freeing obj=", ptrs[i]);
+        DEBUG_DATA("Freeing obj=", (uint64_t)ptrs[i]);
 
         ret = kalloc_free(ptrs[i], 0);
         ASSERT_PANIC(!ret, "Kalloc free failed.");

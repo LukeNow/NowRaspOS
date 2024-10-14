@@ -5,7 +5,7 @@
 #include <common/assert.h>
 
 unsigned int _bits_count(uint64_t bits, unsigned int num)
-{   
+{
     unsigned int count = 0;
     uint64_t mask = 1;
     for (int i = 0; i < num; i++) {

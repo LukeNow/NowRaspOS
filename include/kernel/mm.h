@@ -24,8 +24,8 @@
 
 #define MM_MEMORDER_TO_PAGES(MEMORDER) (1 << (MEMORDER))
 
-#define MM_AREA_FREE_BUDDY(AREA, MEMORDER) (ll_peek_first(&(AREA)->free_buddy_list[MEMORDER]))
-#define MM_GLOBAL_AREA_FREE_AREA(MEMORDER) (ll_peek_first(&mm_global_area()->free_areas_list[MEMORDER]))
+#define MM_AREA_FREE_BUDDY(AREA, MEMORDER) ((list_node_t *)ll_peek_first(&(AREA)->free_buddy_list[MEMORDER]))
+#define MM_GLOBAL_AREA_FREE_AREA(MEMORDER) ((sll_node_t *)ll_peek_first(&mm_global_area()->free_areas_list[MEMORDER]))
 
 #define MM_PAGE_VALID (1 << 0)
 
@@ -47,7 +47,7 @@ typedef struct mm_page {
 } mm_page_t __attribute__ ((aligned (8)));
 
 typedef struct mm_area {
-    unsigned int free_page_num; 
+    unsigned int free_page_num;
     unsigned int start_page_index;
     uint64_t phys_addr_start;
     kalloc_buddy_t * buddies;

@@ -6,6 +6,7 @@
 #include <common/math.h>
 #include <common/string.h>
 #include <common/bits.h>
+#include <common/atomic.h>
 
 #define LEFT_CHILD(INDEX) (2*(INDEX)+1)
 #define RIGHT_CHILD(INDEX) (2*(INDEX)+2)
@@ -25,21 +26,18 @@
 static const uint64_t level_to_mask[] = {
     TREE_LVL_0_MASK,
     TREE_LVL_1_MASK,
-    TREE_LVL_2_MASK, 
+    TREE_LVL_2_MASK,
     TREE_LVL_3_MASK,
     TREE_LVL_4_MASK,
     TREE_LVL_5_MASK
 };
 
 static const unsigned int level_to_index[] = {
-    0, 1, 3, 7, 15, 31, 63 , 127, 255, 
+    0, 1, 3, 7, 15, 31, 63 , 127, 255,
 };
 
-
-
-
 unsigned int al_btree_index_to_level(unsigned int index)
-{   
+{
     unsigned int i;
     for (i = 0; i < AL_BTREE_MAX_LEVEL + 1; i++) {
         if (index < level_to_index[i + 1])
@@ -51,7 +49,7 @@ unsigned int al_btree_index_to_level(unsigned int index)
 
 unsigned int al_btree_level_to_index(unsigned int level) {
     ASSERT(level <= AL_BTREE_MAX_LEVEL + 1);
-    
+
     return level_to_index[level];
 }
 
@@ -93,7 +91,7 @@ unsigned int al_btree_is_empty(al_btree_t * btree)
 unsigned int al_btree_level_is_full(al_btree_t * btree, unsigned int level)
 {
     uint64_t level_mask = level_to_mask[level];
-    
+
     return (*btree & level_mask) == level_mask;
 }
 
@@ -138,8 +136,8 @@ void _al_btree_add_array_entry(al_btree_t * btree,  al_btree_scan_t * scan, unsi
 {
     unsigned int child_index, parent_index, curr_index, sibling_index, curr_level, curr_size, curr_entry;
     uint64_t level_mask;
-    
-    ASSERT(btree && index < AL_BTREE_NUM_ENTRIES);    
+
+    ASSERT(btree && index < AL_BTREE_NUM_ENTRIES);
 
     _al_btree_set(btree, index, entry, 1);
 
@@ -159,7 +157,7 @@ void _al_btree_add_array_entry(al_btree_t * btree,  al_btree_scan_t * scan, unsi
         child_index = DEFAULT_CHILD(curr_index);
 
         _al_btree_set(btree, index, entry, curr_size);
-        
+
         if (scan && curr_entry) {
             scan->level_count[i] += curr_size;
         } else if (scan) {
@@ -169,7 +167,7 @@ void _al_btree_add_array_entry(al_btree_t * btree,  al_btree_scan_t * scan, unsi
         curr_index = child_index;
         curr_size = curr_size << 1;
     }
-    
+
     curr_index = index;
     curr_size = 1;
 
@@ -182,11 +180,11 @@ void _al_btree_add_array_entry(al_btree_t * btree,  al_btree_scan_t * scan, unsi
         // If the entry is a deletion entry and our sibling is set, do not propogate remove changes up
         // the tree because the parent is not free in this case
         if (!curr_entry && _al_btree_get(btree, sibling_index, 1)) {
-            return;   
+            return;
         }
 
         if (curr_entry && _al_btree_get(btree, sibling_index, 1)) {
-            return;   
+            return;
         }
 
         _al_btree_set(btree, parent_index, curr_entry, 1);
@@ -202,7 +200,7 @@ void _al_btree_add_array_entry(al_btree_t * btree,  al_btree_scan_t * scan, unsi
 }
 
 int _al_btree_find_free_node(al_btree_t * btree, unsigned int level)
-{   
+{
     unsigned int index, curr_index, end_index;
     uint64_t level_mask = level_to_mask[level];
 
@@ -244,7 +242,7 @@ int al_btree_add_node(al_btree_t * btree, al_btree_scan_t * scan, int level)
     int index = 0;
     al_btree_entry_t default_entry;
     unsigned int num_entries;
-    
+
     if (!btree || level < -1 || level > AL_BTREE_MAX_LEVEL) {
         ASSERT(0);
         return 1;
@@ -267,7 +265,7 @@ int al_btree_add_node(al_btree_t * btree, al_btree_scan_t * scan, int level)
 int al_btree_atomic_cmpxchg(al_btree_t *btree, al_btree_t expected, al_btree_t target)
 {
     ASSERT(btree);
-    
+
     int ret;
     unsigned int retries = 0;
 
@@ -326,7 +324,7 @@ int al_btree_atomic_remove_node(al_btree_t * btree, al_btree_scan_t * scan, unsi
         }
 
         ret = atomic_cmpxchg(btree, orig_btree, temp_btree);
-    
+
         retries++;
     } while (ret && retries  < BTREE_ALLOC_TRIES);
 
