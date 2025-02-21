@@ -11,9 +11,6 @@ This will be an additive list of the features this kernel supports that I will u
 - Buddy allocator page memory manager
 - Heap memory manager
 - Paging and MMU support
-- Common libraries for user and kernel space
-  - "Polymorphic" linked list library in C, which emulates a C++ class that can call an operate on multiple linked list types in the same shared codebase
-  - Experimental array list binary tree bitmap library suitable for fast atomic bitmap acesses. Useful for heap managment
 
 # Dependencies
 
