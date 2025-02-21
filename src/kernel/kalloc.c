@@ -39,6 +39,11 @@ static kalloc_entry_t entries[] = {
     {2048, &entry_cache[7], 8, 0}
 };
 
+static uint64_t normalize_addr(uint64_t addr)
+{
+    return addr & ~MMU_UPPER_ADDRESS;
+}
+
 static int get_entry_num_from_size(size_t size)
 {
     for (int i = 0; i < KALLOC_ENTRY_NUM; i++) {
@@ -118,6 +123,9 @@ void * kalloc_pages(unsigned int page_num, flags_t flags)
 
 kalloc_pages_exit:
     lock_spinunlock(&lock);
+
+    ptr = (void *)((uint64_t)ptr | MMU_UPPER_ADDRESS);
+
     return ptr;
 }
 
@@ -179,6 +187,9 @@ void * kalloc_alloc(size_t size, flags_t flags)
 
 kalloc_alloc_exit:
     lock_spinunlock(&lock);
+
+    obj = (void *)((uint64_t)obj | MMU_UPPER_ADDRESS);
+
     return obj;
 }
 
@@ -190,6 +201,8 @@ int kalloc_free(void * obj, flags_t flags)
     int ret = 0;
 
     ASSERT_PANIC(kalloc_initialized, "Kalloc is not initialized");
+
+    obj = (void *)((uint64_t)obj & ~MMU_UPPER_ADDRESS);
 
     cache = get_cache_from_addr(obj);
     if (!cache) {
