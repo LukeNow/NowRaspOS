@@ -76,5 +76,6 @@ debugrun: compile gdbinit
 .PHONY: gdbinit
 gdbinit:
 	echo "target remote localhost:1234" > .gdbinit
-	echo "break _start" >> .gdbinit 
+	echo "break _start" >> .gdbinit
+	echo "layout asm regs" >> .gdbinit
  
