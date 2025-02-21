@@ -4,6 +4,8 @@
 #define AARCH64_MSR(REG, VAL) asm volatile ("msr " #REG ", %0" : : "r" (VAL))
 #define AARCH64_MRS(REG, VAL) asm volatile ("mrs %0, " #REG : "=r" (VAL))
 
+void aarch64_nop();
+void aarch64_svc();
 void aarch64_sev();
 void aarch64_wfe();
 void aarch64_dmb_inner();

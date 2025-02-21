@@ -1,6 +1,22 @@
 #include <stddef.h>
 #include <stdint.h>
 
+void aarch64_nop()
+{
+    asm volatile ("nop");
+}
+
+
+/* This is a naked svc call, the immediate is ignored in the handler
+ * Right now we store the parameter through a register, this is how Linux does it I believe.
+ * We will provide the interface through irq.c and maybe tie it back here for general 
+ * calls. 
+ */
+void aarch64_svc()
+{
+    asm volatile ("svc #0x10");
+}
+
 /* Wait for event
  * Puts into low power mode until woken up by event. */
 void aarch64_wfe()
