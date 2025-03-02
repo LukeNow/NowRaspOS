@@ -13,6 +13,6 @@ void aarch64_dmb();
 void aarch64_dsb_inner();
 void aarch64_dsb();
 void aarch64_isb();
-
+void aarch64_cache_flush_invalidate(uint64_t addr);
 
 #endif

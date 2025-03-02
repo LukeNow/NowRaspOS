@@ -6,7 +6,6 @@ void aarch64_nop()
     asm volatile ("nop");
 }
 
-
 /* This is a naked svc call, the immediate is ignored in the handler
  * Right now we store the parameter through a register, this is how Linux does it I believe.
  * We will provide the interface through irq.c and maybe tie it back here for general 
@@ -58,4 +57,11 @@ void aarch64_dsb()
 void aarch64_isb()
 {
     asm volatile ("isb");
+}
+
+void aarch64_cache_flush_invalidate(uint64_t addr)
+{
+    asm volatile ("dc civac, %0" : : "r" (addr) : "memory");
+    // Make sure to put a memory barrier to make sure that the invalidate is finished before continuing
+    aarch64_dsb();
 }
