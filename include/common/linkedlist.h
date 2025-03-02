@@ -47,6 +47,8 @@ typedef struct ll_head_t {
 #define LL_HEAD_INIT(X) static ll_head_t (X)
 
 #define LL_ITER_LIST(HEAD, P) for ((P) = (HEAD)->next; (P); (P) = (P)->list.next)
+#define DLL_ITER_LIST(HEAD, P) for ((P) = (HEAD)->next; (P); (P) = (P)->next)
+#define SLL_ITER_LIST(HEAD, P) for ((P) = (HEAD)->next; (P); (P) = (P)->next)
 
 
 size_t ll_type_size(ll_type_t type);
@@ -55,12 +57,12 @@ int ll_delete_node(ll_head_t * head, ll_node_t * node);
 ll_node_t * ll_pop_list(ll_head_t * head);
 int ll_push_list(ll_head_t * head, ll_node_t * node);
 int ll_insert_node(ll_head_t * head, ll_node_t * node, ll_node_t * last);
+int ll_queue_list(ll_head_t * head, ll_node_t * node);
 ll_node_t * ll_search_data(ll_head_t * head, void * data);
 int ll_delete_list_data(ll_head_t * head, void * data);
 ll_node_t * ll_peek_first(ll_head_t * head);
 ll_node_t * ll_peek_last(ll_head_t * head);
 unsigned int ll_list_size(ll_head_t * head);
-unsigned int ll_list_size(ll_head_t * root);
 int ll_node_init(ll_node_t * node, void * data, ll_type_t type);
 int ll_head_init(ll_head_t * head, ll_type_t type);
 

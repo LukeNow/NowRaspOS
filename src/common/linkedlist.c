@@ -253,6 +253,26 @@ int ll_push_list(ll_head_t * head, ll_node_t * node)
     return ret;
 }
 
+int ll_queue_list(ll_head_t * head, ll_node_t * node)
+{
+    int ret = 0;
+
+    CHECK_NULL(head && node);
+
+    if (ret = ll_node_exists(head, node)) { // TOGGLE THIS AS DEBUG
+        ASSERT(0); // Again throw an assert here to catch if we wanted to delete something that isnt in the list
+        return ret;
+    }
+
+    if (ret = _ll_append_node(head, node, NULL)) {
+        return ret;
+    }
+
+    head->count += 1;
+
+    return ret;
+
+}
 
 ll_node_t * ll_peek_first(ll_head_t * head)
 {   
