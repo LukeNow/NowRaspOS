@@ -3,7 +3,6 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <common/lock.h>
 
 // One hot encoding
 typedef enum {
@@ -37,7 +36,6 @@ typedef union ll_node_t {
 } ll_node_t;
 
 typedef struct ll_head_t {
-    lock_t lock;
     ll_node_t * next;
     ll_node_t * last;
     unsigned int count;

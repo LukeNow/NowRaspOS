@@ -34,7 +34,6 @@ int ll_head_init(ll_head_t * head, ll_type_t type)
     
     memset(head, 0, sizeof(ll_head_t));
 
-    lock_init(&head->lock);
     head->type = type;
 
     return 0;
