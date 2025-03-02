@@ -4,7 +4,7 @@ SRCS = $(wildcard *.c)
 OBJS = $(SRCS:.c=.o)
 CFLAGS = -Wall -O2 -Wextra -ffreestanding -mcpu=cortex-a53 -march=armv8-a -mgeneral-regs-only
 LFLAGS = -ffreestanding -O2 -nostdlib
-QEMU_FLAGS = -serial null -serial stdio -smp 4
+QEMU_FLAGS = -serial null -serial stdio -smp 4 -dtb bcm2710-rpi-3-b-plus.dtb
 QEMU_DBG_FLAGS = -S -s
 
 QEMU = qemu-system-aarch64
@@ -71,7 +71,7 @@ debug:
 	$(GDB) $(ELF)
 
 debugrun: compile gdbinit
-	qemu-system-aarch64 -M raspi3b -no-reboot $(QEMU_FLAGS) -kernel $(IMG) $(QEMU_DBG_FLAGS) 
+	qemu-system-aarch64 -M raspi3b -no-reboot $(QEMU_FLAGS) -kernel $(IMG) $(QEMU_DBG_FLAGS)
 
 .PHONY: gdbinit
 gdbinit:
