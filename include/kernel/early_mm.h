@@ -8,6 +8,7 @@
 #define EARLY_MEM_MAP_ENTRY_NUM 4
 #define EARLY_MEM_MAP_DEVICE_MEM_START 1
 
+uint64_t early_mmu_get_map_entry(uint64_t addr);
 void early_get_mem_size(uint32_t *base_addr, uint32_t *size, mbox_prop_tag_t tag);
 void * early_memset(void* bufptr, int value, size_t size);
 void * early_memcpy(void * dstptr, void * srcptr, size_t size);

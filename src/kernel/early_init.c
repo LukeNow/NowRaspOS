@@ -12,6 +12,26 @@ EARLY_DATA(static uint64_t *high_l0_entry);
 EARLY_DATA(static uint64_t *low_l0_entry);
 EARLY_DATA(static unsigned int early_init_done);
 
+EARLY_TEXT uint64_t early_mmu_get_map_entry(uint64_t addr)
+{   
+    uint32_t l0_index;
+    uint32_t l1_index;
+    uint64_t entry_l0;
+    uint64_t entry_l1;
+    uint64_t * entry_l1_addr;
+
+    l0_index = L0_ENTRY(addr);
+    entry_l0 = low_l0_entry[l0_index];
+    if (!entry_l0)
+        return entry_l0;
+
+    entry_l1_addr = (uint64_t *)(entry_l0 & PT_ADDR);
+    l1_index = L1_ENTRY(addr);
+    entry_l1 = entry_l1_addr[l1_index];
+
+    return entry_l1;
+}
+
 EARLY_TEXT static void low_map_entry(uint64_t addr, uint64_t attrs)
 {
     uint64_t entry_l1;
