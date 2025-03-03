@@ -64,21 +64,43 @@
 
 .extern handle_invalid_irq
 .extern handle_irq
+.extern handle_sync_irq
 
 .global irq_vector_init
 irq_vector_init:
-  adr     x0, vectors                             // load VBAR_EL1 with 
-  msr     vbar_el1, x0                            // vector table address
+  adr x0, vectors                             // load VBAR_EL1 with 
+  msr vbar_el1, x0                            // vector table address
   ret
 
 .global irq_enable
 irq_enable:
-  msr     daifclr, #2
+  msr daifclr, #2
   ret
 
 .global irq_disable
 irq_disable:
-  msr     daifset, #2
+  msr daifset, #2
+  ret
+
+/* irq_save(uint64_t * flags) */
+.global irq_save
+  mrs x3, daif
+  msr daifset, #2
+  str x3, [x0]
+  ret
+
+/* irq_save_disable(uint64_t * flags) */
+.global irq_save_disable
+irq_save_disable:
+  mrs x3, daif
+  msr daifset, #2
+  str x3, [x0]
+  ret
+
+/* irq_restore(uint64_t flags) */
+.global irq_restore
+irq_restore:
+  msr daif, x0
   ret
 
 /*
