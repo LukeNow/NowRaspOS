@@ -28,7 +28,11 @@
 #define MBOX_FULL       0x80000000
 #define MBOX_EMPTY      0x40000000
 
-
+/* Definitions taken from https://github.com/LdB-ECM/Raspberry-Pi/blob/master/10_virtualmemory/rpi-SmartStart.h */
+/*--------------------------------------------------------------------------}
+{	            ENUMERATED MAILBOX TAG CHANNEL COMMANDS						}
+{  https://github.com/raspberrypi/firmware/wiki/Mailbox-property-interface  }
+{--------------------------------------------------------------------------*/
 typedef enum {
     /* Videocore info commands */
 	MAILBOX_TAG_GET_VERSION					= 0x00000001,			// Get firmware revision
@@ -133,6 +137,55 @@ typedef enum {
 	MAILBOX_TAG_SET_CURSOR_STATE			= 0x00008011,			// Set cursor state
 } mbox_prop_tag_t;
 
+/*--------------------------------------------------------------------------}
+{	                  ENUMERATED MAILBOX CHANNELS							}
+{		  https://github.com/raspberrypi/firmware/wiki/Mailboxes			}
+{--------------------------------------------------------------------------*/
+typedef enum {
+	MB_CHANNEL_POWER = 0x0,								// Mailbox Channel 0: Power Management Interface 
+	MB_CHANNEL_FB = 0x1,								// Mailbox Channel 1: Frame Buffer
+	MB_CHANNEL_VUART = 0x2,								// Mailbox Channel 2: Virtual UART
+	MB_CHANNEL_VCHIQ = 0x3,								// Mailbox Channel 3: VCHIQ Interface
+	MB_CHANNEL_LEDS = 0x4,								// Mailbox Channel 4: LEDs Interface
+	MB_CHANNEL_BUTTONS = 0x5,							// Mailbox Channel 5: Buttons Interface
+	MB_CHANNEL_TOUCH = 0x6,								// Mailbox Channel 6: Touchscreen Interface
+	MB_CHANNEL_COUNT = 0x7,								// Mailbox Channel 7: Counter
+	MB_CHANNEL_TAGS = 0x8,								// Mailbox Channel 8: Tags (ARM to VC)
+	MB_CHANNEL_GPU = 0x9,								// Mailbox Channel 9: GPU (VC to ARM)
+} mbox_channel_t;
+
+/*--------------------------------------------------------------------------}
+{					    ENUMERATED MAILBOX CLOCK ID							}
+{		  https://github.com/raspberrypi/firmware/wiki/Mailboxes			}
+{--------------------------------------------------------------------------*/
+typedef enum {
+	CLK_EMMC_ID		= 0x1,								// Mailbox Tag Channel EMMC clock ID 
+	CLK_UART_ID		= 0x2,								// Mailbox Tag Channel uart clock ID
+	CLK_ARM_ID		= 0x3,								// Mailbox Tag Channel ARM clock ID
+	CLK_CORE_ID		= 0x4,								// Mailbox Tag Channel SOC core clock ID
+	CLK_V3D_ID		= 0x5,								// Mailbox Tag Channel V3D clock ID
+	CLK_H264_ID		= 0x6,								// Mailbox Tag Channel H264 clock ID
+	CLK_ISP_ID		= 0x7,								// Mailbox Tag Channel ISP clock ID
+	CLK_SDRAM_ID	= 0x8,								// Mailbox Tag Channel SDRAM clock ID
+	CLK_PIXEL_ID	= 0x9,								// Mailbox Tag Channel PIXEL clock ID
+	CLK_PWM_ID		= 0xA,								// Mailbox Tag Channel PWM clock ID
+} mbox_clock_id_t;
+
+/*--------------------------------------------------------------------------}
+{			      ENUMERATED MAILBOX POWER BLOCK ID							}
+{		  https://github.com/raspberrypi/firmware/wiki/Mailboxes			}
+{--------------------------------------------------------------------------*/
+typedef enum {
+	PB_SDCARD		= 0x0,								// Mailbox Tag Channel SD Card power block 
+	PB_UART0		= 0x1,								// Mailbox Tag Channel UART0 power block 
+	PB_UART1		= 0x2,								// Mailbox Tag Channel UART1 power block 
+	PB_USBHCD		= 0x3,								// Mailbox Tag Channel USB_HCD power block 
+	PB_I2C0			= 0x4,								// Mailbox Tag Channel I2C0 power block 
+	PB_I2C1			= 0x5,								// Mailbox Tag Channel I2C1 power block 
+	PB_I2C2			= 0x6,								// Mailbox Tag Channel I2C2 power block 
+	PB_SPI			= 0x7,								// Mailbox Tag Channel SPI power block 
+	PB_CCP2TX		= 0x8,								// Mailbox Tag Channel CCP2TX power block 
+} mbox_power_id_t;
 typedef enum {
     REQUEST = 0x00000000,
     RESPONSE_SUCCESS = 0x80000000,
@@ -164,8 +217,9 @@ typedef uint32_t mbox_message_t;
 typedef uint32_t mbox_status_t;
 
 
-void mbox_send(mbox_message_t msg, int channel);
-int mbox_read(uint32_t *mbox, uint32_t channel);
+void mbox_send(mbox_message_t msg, mbox_channel_t ch);
+uint32_t mbox_read(mbox_channel_t ch);
+int mbox_request(uint32_t * response_buf, uint8_t data_count, ...);
 mbox_message_t mbox_make_msg(uint32_t *mbox, uint32_t ch);
 
 
