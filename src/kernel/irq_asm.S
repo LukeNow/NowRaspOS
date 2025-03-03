@@ -91,7 +91,7 @@ vectors:
   ventry  fiq_invalid_el1t                        // FIQ EL1t
   ventry  error_invalid_el1t                      // Error EL1t
 
-  ventry  sync_invalid_el1h                       // Synchronous EL1h
+  ventry  el1_sync_irq                            // Synchronous EL1h
   ventry  el1_irq                                 // IRQ EL1h
   ventry  fiq_invalid_el1h                        // FIQ EL1h
   ventry  error_invalid_el1h                      // Error EL1h
@@ -120,6 +120,12 @@ error_invalid_el1t:
 
 sync_invalid_el1h:
   handle_invalid_entry  4
+
+el1_sync_irq:
+  kernel_entry
+  mov x0, x8
+  bl handle_sync_irq
+  kernel_exit
 
 el1_irq:
   kernel_entry
@@ -155,3 +161,10 @@ fiq_invalid_el0_32:
 
 error_invalid_el0_32:
   handle_invalid_entry  15
+
+/* Store the vector number in x8 register to read later */
+.global irq_sync_el1
+/* extern void irq_sync_el1(uint64_t vector) */
+irq_sync_el1:
+  mov x8, x0
+  svc #0x10

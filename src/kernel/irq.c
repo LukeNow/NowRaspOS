@@ -7,6 +7,9 @@
 #include <common/assert.h>
 #include <common/common.h>
 #include <kernel/timer.h>
+#include <common/aarch64_common.h>
+#include <common/bits.h>
+#include <kernel/cpu.h>
 
 void irq_init() 
 {
@@ -24,6 +27,21 @@ void handle_invalid_irq(int irq_entry)
     uart_hex(irq_entry);
     printf("\n");
     return;
+}
+
+void handle_sync_irq(uint64_t exception)
+{
+    uint64_t esr;
+    DEBUG_DATA("SYNC HANDLER CALLED =", exception);
+
+    DEBUG_DATA("CPU ID=", cpu_get_id());
+    AARCH64_MRS(esr_el1, esr);
+
+    DEBUG_DATA("Code1=", esr);
+    DEBUG_DATA_BINARY("Code1=", (uint32_t)esr);
+    DEBUG_DATA_BINARY("Code2=", (uint32_t)esr>>32);
+
+    DEBUG_PANIC("STOP");
 }
 
 void handle_irq()
