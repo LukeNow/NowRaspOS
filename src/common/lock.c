@@ -5,6 +5,9 @@
 #include <common/lock.h>
 #include <common/atomic.h>
 #include <common/common.h>
+#include <kernel/task.h>
+#include <kernel/cpu.h>
+#include <kernel/sched.h>
 
 int lock_init(lock_t * lock)
 {
@@ -66,4 +69,33 @@ void lock_spinunlock(lock_t  * lock)
 {
     aarch64_dmb();
     *lock = 0;
+}
+
+void lock_sleeplock(sleeplock_t * lock)
+{
+    unsigned int tries = 0;
+    
+    int ret = lock_trylock(&lock->lock);
+
+    while(ret) {
+        
+        /*
+        if (tries > 20) {
+            sched_sleep_on_lock(lock);
+            tries = 0;
+        } */
+        
+        sched_sleep_on_lock(lock);
+        tries++;
+        ret = lock_trylock(&lock->lock);
+    }
+
+}
+
+void lock_sleepunlock(sleeplock_t * lock)
+{
+    lock_tryunlock(&lock->lock);
+
+    if (ll_list_size(&lock->sleep_list))
+        sched_wake_on_lock(lock);
 }
