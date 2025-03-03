@@ -128,6 +128,7 @@ typedef union {
 } VMSAv8_64_DESCRIPTOR;
 */
 
+uint64_t mmu_get_phys_addr(uint64_t virt_addr);
 int mmu_map_entry(uint64_t *phys_addr, uint64_t *virt_addr, uint64_t attributes);
 int mmu_init(uint32_t phy_mem_size, uint32_t vc_mem_start, uint32_t vc_mem_size);
 
