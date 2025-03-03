@@ -46,12 +46,33 @@ void handle_sync_irq(uint64_t exception)
 
 void handle_irq()
 {   
-    unsigned int irq = GET32(IRQ_PENDING_1);
+    uint8_t core_id = cpu_get_id();
+    uint32_t core_irq = QA7->CoreIRQSource[core_id].Raw32;
+    unsigned int irq = IRQ->IRQPending1;
+    unsigned int pending2 = IRQ->IRQPending2;
+
+    switch (core_irq) {
+        case 0:
+            break;
+        case LOCAL_TIMER_SRC_INT:
+            DEBUG("Local timer fired");
+            localtimer_clearirq();
+            break;
+        default:
+            DEBUG_DATA("Unknown coreirq pending = ", core_irq);
+    }
+
+
 	switch (irq) {
-		case (SYSTEM_TIMER_IRQ_1):
-			timer_handle_irq();
+		case 0:
+            break;
+        case (SYSTEM_TIMER_IRQ_1):
+			//timer_handle_irq();
+            systemtimer_clearirq();
+            DEBUG("TIMER HIT");
 			break;
 		default:
 			DEBUG_DATA_DIGIT("--Invalid irq fired, irq=", irq);
 	}
+
 }

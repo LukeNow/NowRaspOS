@@ -74,6 +74,11 @@ set_stacks:
 	msr	sp_el1, x3							/* EL1 stack set */
 	msr	sp_el0, x4							/* EL0 stack set */
 
+    mrs	x0, cnthctl_el2
+	orr	x0, x0, #0x3						/* Enable EL1 access to timers */
+	msr	cnthctl_el2, x0
+	msr	cntvoff_el2, xzr
+
     // Continue to el1 entry
     mov     x0, 0x000001c5
     msr     spsr_el2, x0                          // Update "Saved Program Status Register (EL2)":
