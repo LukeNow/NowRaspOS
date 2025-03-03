@@ -5,6 +5,16 @@
 
 DEFINE_SPINLOCK(lock);
 
+void lock_printlock()
+{
+    lock_spinlock(&lock);
+}
+
+void unlock_printlock()
+{
+    lock_spinunlock(&lock);
+}
+
 static char *convert(unsigned int num, int base) 
 {
 	static char representation[] = "0123456789ABCDEF";
@@ -28,10 +38,8 @@ int printf(const char *s)
     if  (!uart_isready()) 
         return -1;
     
-    lock_spinlock(&lock);
     uart_puts(s);
 
-    lock_spinunlock(&lock);
     return 0;
 }
 
