@@ -28,6 +28,7 @@ EARLY_TEXT static void low_map_entry(uint64_t addr, uint64_t attrs)
         entry_l1_addr = (uint64_t *)mm_earlypage_alloc(1);
         early_memset(entry_l1_addr, 0, PAGE_SIZE);
         low_l0_entry[l0_index] = PT_SECURE | (uint64_t)entry_l1_addr | PT_ENTRY;
+        entry_l0 = low_l0_entry[l0_index];
     }
 
     entry_l1_addr = (uint64_t *)(entry_l0 & PT_ADDR);
@@ -55,6 +56,7 @@ EARLY_TEXT void early_mmu_enable()
 
     AARCH64_MSR(mair_el1, r);
 
+    // For now low mem and high mem are identitcal
     AARCH64_MSR(ttbr0_el1, (uint64_t)low_l0_entry);
     AARCH64_MSR(ttbr1_el1, (uint64_t)low_l0_entry);
 
@@ -117,7 +119,7 @@ EARLY_TEXT int early_mmu_init(mmu_mem_map_t * phys_mem_map, uint32_t phys_mem_si
     for (int i = 0; i < EARLY_MEM_MAP_ENTRY_NUM; i++) {
         uint64_t mem_end = (phys_mem_map[i].start_addr + phys_mem_map[i].size) / MMU_LEVEL1_BLOCKSIZE;
         
-        for (uint64_t block_addr = phys_mem_map[i].start_addr / MMU_LEVEL1_BLOCKSIZE; block_addr < mem_end; block_addr++) {
+        for (uint64_t block_addr = phys_mem_map[i].start_addr / MMU_LEVEL1_BLOCKSIZE; block_addr <= mem_end; block_addr++) {
             low_map_entry(block_addr * MMU_LEVEL1_BLOCKSIZE, phys_mem_map[i].attrs);
         }
     }
