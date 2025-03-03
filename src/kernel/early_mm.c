@@ -144,13 +144,14 @@ EARLY_TEXT mmu_mem_map_t * mm_early_get_memmap()
  * on rasbi3b+ but I like having the values calculated for sanities sake. */
 EARLY_TEXT mmu_mem_map_t * mm_early_init_memmap(uint32_t phys_mem_size, uint32_t vc_mem_start, uint32_t vc_mem_size)
 {   
-    uint64_t mmio_ram_size = vc_mem_size - MMIO_BASE;
     uint64_t vc_ram_size = MMIO_BASE - vc_mem_start;
-
+    uint64_t mmio_ram_size = vc_mem_size - vc_ram_size;
+    
     mmu_mem_map_t map[] = {
         {0, vc_mem_start, PT_MEM_ATTR(MT_NORMAL) | PT_INNER_SHAREABLE}, // Normal ram memory
         {vc_mem_start, vc_ram_size, PT_MEM_ATTR(MT_NORMAL_NC)}, // Video core ram, we dont want to cache these accesses
         {MMIO_BASE, mmio_ram_size, PT_MEM_ATTR(MT_DEVICE_NGNRNE)}, // MMIO access to registers and other peripherals
+        {MMIO_QA7_BASE, MMIO_QA7_SIZE, PT_MEM_ATTR(MT_DEVICE_NGNRNE)},
         {0, 0, 0}
     };
 

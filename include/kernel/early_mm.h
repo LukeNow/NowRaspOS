@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <kernel/mbox.h>
 
-#define EARLY_MEM_MAP_ENTRY_NUM 3
+#define EARLY_MEM_MAP_ENTRY_NUM 4
 #define EARLY_MEM_MAP_DEVICE_MEM_START 1
 
 void early_get_mem_size(uint32_t *base_addr, uint32_t *size, mbox_prop_tag_t tag);
