@@ -20,6 +20,16 @@ uint64_t mmu_get_phys_addr(uint64_t virt_addr)
     return virt_addr - MMU_UPPER_ADDRESS;
 }
 
+uint64_t mmu_get_kern_addr(uint64_t phys_addr)
+{
+    if (phys_addr >= MMU_UPPER_ADDRESS)
+        return phys_addr;
+    
+    // TODO actually check the page table for this addr, for now this is okay.
+    return phys_addr + MMU_UPPER_ADDRESS;
+
+}
+
 
 int mmu_map_entry(uint64_t *phys_addr, uint64_t *virt_addr, uint64_t attributes)
 {

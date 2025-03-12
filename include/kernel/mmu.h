@@ -27,7 +27,7 @@
 #define PT_NO_EXECUTE (1 << 54)
 #define PT_NO_EXECUTE_LOWER_EL (1 << 59)
 #define PT_NO_TRANSLATE_LOWER_EL (1 << 60)
-#define PT_SECURE (1 << 63)
+#define PT_SECURE ((uint64_t)1 << 63)
 
 #define ENTRIES_PER_PAGE 512
 
@@ -128,6 +128,7 @@ typedef union {
 } VMSAv8_64_DESCRIPTOR;
 */
 
+uint64_t mmu_get_kern_addr(uint64_t phys_addr);
 uint64_t mmu_get_phys_addr(uint64_t virt_addr);
 int mmu_map_entry(uint64_t *phys_addr, uint64_t *virt_addr, uint64_t attributes);
 int mmu_init(uint32_t phy_mem_size, uint32_t vc_mem_start, uint32_t vc_mem_size);
