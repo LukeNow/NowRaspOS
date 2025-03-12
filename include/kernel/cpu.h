@@ -90,6 +90,8 @@ typedef struct cpu_info {
 } cpu_info_t __attribute__((aligned(8)));
 
 
+#define CURR_TASK (cpu_get_currcpu_info()->curr_task)
+
 uint32_t cpu_get_id();
 cpu_info_t * cpu_get_percpu_info(uint32_t id);
 cpu_info_t * cpu_get_currcpu_info();
