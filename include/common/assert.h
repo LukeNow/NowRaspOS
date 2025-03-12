@@ -22,6 +22,8 @@
 #define ASSERT_PANIC(X, MSG) do { ASSERT((X)); if (!(X)){ DEBUG(MSG); CYCLE_INFINITE;} } while(0)
 #define DEBUG_THROW(MSG) do {DEBUG(MSG);} while(0)
 #define DEBUG_PANIC(MSG) ASSERT_PANIC(0, MSG)
+/* Hacky solution to stop all cores when 1 panics, take the printlock to deadlock everyone else on next printf call. */
+#define DEBUG_PANIC_ALL(MSG) do { DEBUG(MSG); lock_printlock();} while(0)
 
 #endif
 
