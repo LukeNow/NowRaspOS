@@ -11,6 +11,9 @@
 #define LOCAL_TIMER_SCALAR 384  // 2 * 19.2Mhz crystal freq = 38.4Mhz
 #define ARM_PRESCALAR_DIV 250
 
+uint64_t localtimer_time_us = 0;
+uint32_t localtimer_period_us = 0;
+
 uint32_t systemtimer_reload_usec = 20000;
 
 uint64_t timer_difference(uint64_t time1, uint64_t time2)
@@ -55,31 +58,11 @@ void systemtimer_clearirq()
 
 void systemtimer_initirq(uint32_t usec)
 {
-    uint32_t low;
-    uint32_t mask;
     systemtimer_reload_usec = usec;
 
     systemtimer_clearirq();
-    mask = IRQ->EnableIRQs1 | SYSTEM_TIMER_IRQ_1;
-    IRQ->EnableIRQs1 = mask;
+    IRQ->EnableIRQs1 = IRQ->EnableIRQs1 | SYSTEM_TIMER_IRQ_1;
 }
-
-void generictimer_init(uint32_t msec)
-{
-    uint32_t freq;
-    uint32_t ticks;
-    asm volatile ("mrs %0, CNTFRQ_EL0" : "=r" (freq));
-    
-    ticks = (freq / 1000) * msec;
-
-    asm volatile ("msr CNTP_TVAL_EL0, %0" : : "r" (ticks)); // Load timer
-
-    asm volatile ("msr CNTP_CTL_EL0, %0" : : "r" (1)); // Enable timer
-
-
-    DEBUG_DATA_DIGIT("Freq=", freq);
-}
-
 
 void armtimer_clearirq()
 {
@@ -106,7 +89,6 @@ void armtimer_init(uint32_t period_in_us)
     divisor *= period_in_us;
     divisor /= 100;
     
-    DEBUG_DATA_DIGIT("Divisor=", divisor);
     if (!divisor) {
         DEBUG_PANIC("Clock divisor is 0");
     }
@@ -129,6 +111,16 @@ void armtimer_irq_init(uint32_t period_in_us)
     armtimer_clearirq();
 }
 
+uint64_t localtimer_gettime()
+{
+    return localtimer_time_us;
+}
+
+void localtimer_isr_tick()
+{
+    localtimer_time_us += localtimer_period_us;
+}
+
 void localtimer_clearirq()
 {
     QA7->TimerClearReload.IntClear = 1;
@@ -143,12 +135,13 @@ void localtimer_init(uint32_t period_in_us)
     QA7->TimerControlStatus.ReloadValue = divisor;
     QA7->TimerControlStatus.TimerEnable = 1;
     QA7->TimerClearReload.Reload = 1;
+    localtimer_period_us = period_in_us;
 }
 
 void localtimer_irqinit(uint32_t period_in_us, uint8_t corenum)
 {
     localtimer_init(period_in_us);
-
+    
     QA7->TimerRouting.Routing = LOCALTIMER_TO_CORE0_IRQ + corenum;
     QA7->TimerControlStatus.IntEnable = 1;
     QA7->TimerClearReload.IntClear = 1;

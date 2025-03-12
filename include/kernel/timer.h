@@ -15,9 +15,11 @@ void generictimer_init(uint32_t msec);
 void armtimer_clearirq();
 void armtimer_init(uint32_t period_in_us);
 void armtimer_irq_init(uint32_t period_in_us);
+
+uint64_t localtimer_gettime();
+void localtimer_isr_tick();
 void localtimer_clearirq();
 void localtimer_init(uint32_t period_in_us);
 void localtimer_irqinit(uint32_t period_in_us, uint8_t corenum);
-
 
 #endif
