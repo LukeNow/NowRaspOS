@@ -148,8 +148,9 @@ int ll_node_exists(ll_head_t * head, ll_node_t * node)
         return 0;
 
     LL_ITER_LIST(head, p) {
-        if (p == node)
+        if (p == node) {
             return 1;
+        }
     }
 
     return 0;
@@ -164,12 +165,15 @@ int ll_insert_node(ll_head_t * head, ll_node_t * node, ll_node_t * last)
 
     CHECK_NULL(head && node);
     
-    if (ll_node_exists(head, node)) { // TOGGLE THIS AS DEBUG
-        DEBUG_THROW("Node does not exist");
-        return 1;
+    ret = ll_node_exists(head, node); 
+    if (ret) { // TOGGLE THIS AS DEBUG
+        DEBUG_PANIC("The node already exists");
+        return ret;
     }
 
-    if (ret = _ll_append_node(head, node, last)) {
+    ret = _ll_append_node(head, node, last);
+    if (ret) {
+        DEBUG_PANIC("Failed to insert into list");
         return ret;
     }
 
@@ -189,9 +193,10 @@ int ll_delete_node(ll_head_t * head, ll_node_t * node)
     if (head->count == 0)
         return 1;
 
-    if (!ll_node_exists(head, node)) { // TOGGLE THIS AS DEBUG
-        DEBUG_PANIC("The node does not exist."); // Again throw an assert here to catch if we wanted to delete something that isnt in the list
-        return 1;
+    ret = ll_node_exists(head, node);
+    if (!ret) { // TOGGLE THIS AS DEBUG
+        DEBUG_PANIC("Could not delete, the node does not exist."); // Again throw an assert here to catch if we wanted to delete something that isnt in the list
+        return !ret;
     }
 
     // We need to find the last node before the one we want to delete
@@ -206,8 +211,9 @@ int ll_delete_node(ll_head_t * head, ll_node_t * node)
         found_last = node->dll.last;
     }
 
-    //DEBUG_DATA("Found last=", found_last);
-    if (ret = _ll_delete_node(head, node, found_last)) {
+    ret = _ll_delete_node(head, node, found_last);
+    if (ret) {
+        DEBUG_PANIC("Could not delete node from list");
         return ret;
     }
 
@@ -226,7 +232,12 @@ ll_node_t * ll_pop_list(ll_head_t * head)
         return NULL;
 
     node = head->last;
+    if (!node) {
+        return NULL;
+    }
+
     if (ll_delete_node(head, node)) {
+        DEBUG_PANIC("Failed to pop from list");
         return NULL;
     }
 
@@ -239,12 +250,15 @@ int ll_push_list(ll_head_t * head, ll_node_t * node)
 
     CHECK_NULL(head && node);
 
-    if (ret = ll_node_exists(head, node)) { // TOGGLE THIS AS DEBUG
-        ASSERT(0); // Again throw an assert here to catch if we wanted to delete something that isnt in the list
+    ret = ll_node_exists(head, node);
+    if (ret) { // TOGGLE THIS AS DEBUG
+        DEBUG_PANIC("The node already exists in the list");// Again throw an assert here to catch if we wanted to delete something that isnt in the list
         return ret;
     }
 
-    if (ret = _ll_append_node(head, node, head->last)) {
+    ret = _ll_append_node(head, node, head->last);
+    if (ret) {
+        DEBUG_PANIC("Failed to append to list");
         return ret;
     }
 
@@ -258,13 +272,15 @@ int ll_queue_list(ll_head_t * head, ll_node_t * node)
     int ret = 0;
 
     CHECK_NULL(head && node);
-
-    if (ret = ll_node_exists(head, node)) { // TOGGLE THIS AS DEBUG
-        ASSERT(0); // Again throw an assert here to catch if we wanted to delete something that isnt in the list
+    ret = ll_node_exists(head, node);
+    if (ret) { // TOGGLE THIS AS DEBUG
+        DEBUG_PANIC("The node already exists in the list"); // Again throw an assert here to catch if we wanted to delete something that isnt in the list
         return ret;
     }
-
-    if (ret = _ll_append_node(head, node, NULL)) {
+    
+    ret = _ll_append_node(head, node, NULL);
+    if (ret) {
+        DEBUG_PANIC("Failed to queue to list");
         return ret;
     }
 
