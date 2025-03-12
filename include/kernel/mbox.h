@@ -192,6 +192,12 @@ typedef enum {
     RESPONSE_ERROR = 0x80000001
 } mbox_res_code_t;
 
+typedef enum {
+	CORE_EXEC = 1,
+	CORE_INVALIDATE = 2
+} mbox_core_cmd_t;
+
+#define MBOX_CORE_CMD_BYTE 0x0000000F
 typedef struct {
     mbox_prop_tag_t tag;
     uint32_t size;
@@ -222,5 +228,12 @@ uint32_t mbox_read(mbox_channel_t ch);
 int mbox_request(uint32_t * response_buf, uint8_t data_count, ...);
 mbox_message_t mbox_make_msg(uint32_t *mbox, uint32_t ch);
 
+void mbox_enable_irq(uint8_t corenum);
+void mbox_clear_core_msg(uint8_t corenum, uint8_t fromcore);
+void mbox_send_core_msg(uint8_t tocore, uint8_t fromcore, uint32_t msg);
+uint32_t mbox_get_core_msg(uint8_t corenum, uint8_t fromcore);
+uint32_t mbox_get_clear_core_msg(uint8_t corenum, uint8_t fromcore);
+void mbox_core_cmd_int(uint8_t tocore, uint8_t fromcore, mbox_core_cmd_t cmd, uint32_t data);
+void mbox_handle_core_int(uint8_t corenum, uint8_t fromcore);
 
 #endif

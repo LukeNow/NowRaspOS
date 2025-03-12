@@ -59,6 +59,8 @@
 #define SYSTEM_TIMER_IRQ_2	(1 << 2)
 #define SYSTEM_TIMER_IRQ_3	(1 << 3)
 #define LOCAL_TIMER_SRC_INT (1 << 11)
+#define LOCAL_MBOX_SRC_INT_MBOX0 	4
+#define LOCAL_MBOX_SRC_INT(MBOXNUM) (1 << ((MBOXNUM) + LOCAL_MBOX_SRC_INT_MBOX0))
 
 /* QA7 REf https://github.com/Tekki/raspberrypi-documentation/blob/master/hardware/raspberrypi/bcm2836/QA7_rev3.4.pdf */
 /* Definitions from https://github.com/LdB-ECM/Raspberry-Pi/blob/master/10_virtualmemory/rpi-SmartStart.c */
@@ -753,6 +755,24 @@ typedef union
 	uint32_t Raw32;													// Union to access all 32 bits as a uint32_t
 } core_int_source_reg_t;
 
+typedef uint32_t core_mbox_t;
+
+typedef struct
+{
+	uint32_t mbox_0;
+	uint32_t mbox_1;
+	uint32_t mbox_2;
+	uint32_t mbox_3;
+} core_mbox_write_set_t;
+
+typedef struct
+{
+	uint32_t mbox_0;
+	uint32_t mbox_1;
+	uint32_t mbox_2;
+	uint32_t mbox_3;
+} core_mbox_read_write_clear_t;
+
 /*--------------------------------------------------------------------------}
 {					 ALL QA7 REGISTERS IN ONE BIG STRUCTURE					}
 {--------------------------------------------------------------------------*/
@@ -768,6 +788,8 @@ struct __attribute__((__packed__, aligned(4))) QA7Registers {
 	mailbox_int_ctrl_reg_t  CoreMailboxIntControl[4];				// 0x50, 0x54, 0x58, 0x5C  .. One per core
 	core_int_source_reg_t CoreIRQSource[4];							// 0x60, 0x64, 0x68, 0x6C  .. One per core
 	core_int_source_reg_t CoreFIQSource[4];							// 0x70, 0x74, 0x78, 0x7C  .. One per core
+	core_mbox_write_set_t CoreMboxWrite[4];							// 0x80, 0x84, 0x88, 0x8C  .. One per core
+	core_mbox_read_write_clear_t CoreMboxRead[4];					// 0xC0, 0xC4, 0xC8, 0xCC  .. One per core
 };
 
 #define GPIO ((volatile __attribute__((aligned(4))) struct GPIORegisters*)(uintptr_t)(MMIO_BASE + 0x200000))
