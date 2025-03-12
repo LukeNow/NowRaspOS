@@ -88,7 +88,7 @@ EARLY_TEXT void early_mmu_enable()
     r = (0b00LL << 38) | // TBI1=0, Use top byte for address calculation for TTBR1_EL1
         (0b00LL << 37) | // TBI0=0, Use top byte for address calculation for TTBR0_EL1
         (0b0LL  << 36) | // AS, ASID size, 8 bit default
-        (id & 0b111 << 32) | // IPS size
+        ((id & 0b111) << 32) | // IPS size
         (0b10LL << 30) | // TG1=4k granulatity
         (0b11LL << 28) | // SH1=3 Sharability for inner mem only
         (0b01LL << 26) | // ORGN1=1 same as below but for outer memory
