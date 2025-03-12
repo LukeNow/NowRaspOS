@@ -12,7 +12,7 @@ void lock_printlock()
 
 void unlock_printlock()
 {
-    lock_spinunlock(&lock);
+    unlock_spinlock(&lock);
 }
 
 static char *convert(unsigned int num, int base) 

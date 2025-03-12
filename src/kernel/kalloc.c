@@ -122,7 +122,7 @@ void * kalloc_pages(unsigned int page_num, flags_t flags)
     }
 
 kalloc_pages_exit:
-    lock_spinunlock(&lock);
+    unlock_spinlock(&lock);
 
     ptr = (void *)((uint64_t)ptr | MMU_UPPER_ADDRESS);
 
@@ -137,7 +137,7 @@ int kalloc_free_pages(void * page_ptr, flags_t flags)
 
     ret = kalloc_page_free_pages((uint64_t)page_ptr, flags);
 
-    lock_spinunlock(&lock);
+    unlock_spinlock(&lock);
     
     ASSERT_PANIC(!ret, "Kalloc free pages failed.");
     return ret;
@@ -156,16 +156,13 @@ void * kalloc_alloc(size_t size, flags_t flags)
 
     if (size > KALLOC_MAX_ENTRY_ALLOC) {
         page_num = ALIGN_UP(size, PAGE_SIZE) / PAGE_SIZE;
-        DEBUG_DATA_DIGIT("Kalloc allocing from pages page_num=", page_num);
         return kalloc_pages(page_num, flags);
     }
 
     lock_spinlock(&lock);
 
-    DEBUG_DATA_DIGIT("KALLOC alloc with size=", size);
     entry_num = get_entry_num_from_size(size);
 
-    DEBUG_DATA_DIGIT("Kalloc entry_num=", entry_num);
     cache = entries[entry_num].cache;
 
     if (check_cache_needs_expand(cache)) {
@@ -186,7 +183,7 @@ void * kalloc_alloc(size_t size, flags_t flags)
     entries[entry_num].alloc_num++;
 
 kalloc_alloc_exit:
-    lock_spinunlock(&lock);
+    unlock_spinlock(&lock);
 
     obj = (void *)((uint64_t)obj | MMU_UPPER_ADDRESS);
 
@@ -206,7 +203,6 @@ int kalloc_free(void * obj, flags_t flags)
 
     cache = get_cache_from_addr(obj);
     if (!cache) {
-        DEBUG("Linked cache not found, attempting to free page. ");
         if (!IS_ALIGNED((uint64_t)obj, PAGE_SIZE)) {
             DEBUG_PANIC("Suspected page pointer is not aligned.");
         }
@@ -232,7 +228,7 @@ int kalloc_free(void * obj, flags_t flags)
     entries[entry_num].alloc_num--;
 
 kalloc_free_exit:
-    lock_spinunlock(&lock);
+    unlock_spinlock(&lock);
 
     return ret;
 }

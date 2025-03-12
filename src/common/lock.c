@@ -8,6 +8,7 @@
 #include <kernel/task.h>
 #include <kernel/cpu.h>
 #include <kernel/sched.h>
+#include <common/queue.h>
 
 int lock_init(lock_t * lock)
 {
@@ -23,25 +24,18 @@ int spinlock_init(spinlock_t * lock)
     return 0;
 }
 
-int sleeplock_init(sleeplock_t * lock)
-{
-    spinlock_init(&lock->list_lock);
-    ll_head_init(&lock->sleep_list, LIST_NODE_T);
-    lock->lock = 0;
-
-    return 0;
-}
-
 int lock_trylock(lock_t * lock)
 {
     /* 0 for success in lock, 1 for lock is currently taken or there is contention. */
     return atomic_cmpxchg_64(lock, 0, 1);
 }
 
-int lock_tryunlock(lock_t * lock)
+int unlock_trylock(lock_t * lock)
 {
     aarch64_dmb();
     *lock = 0;
+
+    return 0;
 }
 
 void lock_spinlock(lock_t * lock)
@@ -51,51 +45,20 @@ void lock_spinlock(lock_t * lock)
     }
 }
 
-void spinlock_irqsave(lock_t * lock, uint64_t * flags)
+void lock_spinlock_irqsave(lock_t * lock, uint64_t * flags)
 {
-    int ret;
-
     irq_save_disable(flags);
     lock_spinlock(lock) ;  
 }
 
-void spinunlock_irqrestore(lock_t * lock, uint64_t flags)
+void unlock_spinlock_irqrestore(lock_t * lock, uint64_t flags)
 {
-    lock_tryunlock(lock);
+    unlock_spinlock(lock);
     irq_restore(flags);
 }
 
-void lock_spinunlock(lock_t  * lock)
+void unlock_spinlock(lock_t  * lock)
 {
     aarch64_dmb();
     *lock = 0;
-}
-
-void lock_sleeplock(sleeplock_t * lock)
-{
-    unsigned int tries = 0;
-    
-    int ret = lock_trylock(&lock->lock);
-
-    while(ret) {
-        
-        /*
-        if (tries > 20) {
-            sched_sleep_on_lock(lock);
-            tries = 0;
-        } */
-        
-        sched_sleep_on_lock(lock);
-        tries++;
-        ret = lock_trylock(&lock->lock);
-    }
-
-}
-
-void lock_sleepunlock(sleeplock_t * lock)
-{
-    lock_tryunlock(&lock->lock);
-
-    if (ll_list_size(&lock->sleep_list))
-        sched_wake_on_lock(lock);
 }
