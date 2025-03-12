@@ -12,255 +12,453 @@
 #include <kernel/irq.h>
 #include <common/lock.h>
 #include <kernel/timer.h>
+#include <common/queue.h>
+#include <common/common.h>
+#include <kernel/mbox.h>
+#include <common/atomic.h>
+#include <kernel/slock.h>
 
-ll_head_t ready_list;
-ll_head_t sleep_list;
-ll_head_t wait_list;
+#define WAIT_QUEUE_NUM 59 // Hash friendly Queue num, Used by MACH kernel
 
-//ll_head_t pause_list;
+queue_head_t ready_queue;
+
+/* We want to have signals based on an ever increasing counter of EVENT_ID, 
+ * and then have waiting threads hash to these waitqueues based on the id. 
+ * We want to have a user-space friendly export for this Event_id num. */
+queue_head_t wait_queue[WAIT_QUEUE_NUM];
+spinlock_t wait_lock[WAIT_QUEUE_NUM];
+
+#define wait_hash(event_id) \
+        (uint32_t) (((event_id)) ? (event_id) % WAIT_QUEUE_NUM : NULL_EVENT_HASH)
+
+#define IDLE_TASK (&idle_tasks[cpu_get_id()])
+
 task_t idle_tasks[CORE_NUM + 1];
 spinlock_t sched_lock;
+uint64_t last_sched_timestamp;
+event_id_t event_ids = 0;
 
-
-task_t * test_task;
-
-sleeplock_t test_lock;
+/* TEST variables */
+slock_t test_lock;
+uint32_t array[32];
 
 void idle_loop()
 {
-    uint64_t reg;
+    while (1) {
+        systemtimer_wait(1000);
+        
+        sched_yield();
+    }
+}
 
-    //irq_sync_el1(0x1111);
-
-    //AARCH64_MRS(spsr_el1, reg);
-    //DEBUG_DATA("reg=", reg);
+void test_loop2()
+{
     while (1) {
 
-        //DEBUG_DATA("IDLE LOOP HIT CPU=", cpu_get_id());
-        //DEBUG_DATA("Curr task=", cpu_get_currcpu_info()->curr_task);
-        sched_schedule();
-        aarch64_nop();
+        DEBUG_DATA("TEST_LOOP_2 = ", cpu_get_id());
+        //sched_yield();
     }
 }
 
 void test_loop()
 {
+    uint32_t test = 0;
+    uint32_t task_id = cpu_get_currcpu_info()->curr_task->task_id;
+    
+    array[task_id] = test;
+
     while (1) {
         //DEBUG_DATA("TEST_LOOP=", cpu_get_id());
 
         //DEBUG_DATA("Curr task=", cpu_get_currcpu_info()->curr_task);
 
-        lock_sleeplock(&test_lock);
+        lock_slock(&test_lock);
         
-        printf("ENTERED SLEEP LOCK\n");
-        DEBUG_DATA("TEST_LOOP=", cpu_get_id());
-        DEBUG_DATA("Curr task=", cpu_get_currcpu_info()->curr_task);
+        if (array[task_id] != test) {
+            DEBUG_PANIC_ALL("NOT EQUAL");
+        }
+        DEBUG_DATA("Curr task=", cpu_get_currcpu_info()->curr_task->task_id);
+
+        test++;
+        array[task_id] = test;
 
 
-
-        lock_sleepunlock(&test_lock);
-
-        //sched_add_ready_list(cpu_get_currcpu_info()->curr_task);
-        aarch64_nop();
-
-        sched_change_task_state(cpu_get_currcpu_info()->curr_task, TASK_READY);
-        sched_schedule();
+        unlock_slock(&test_lock);
     }
 }
 
-/* SCHED LOCK HELD */
-static void sched_add_list(ll_head_t * list, task_t * task)
+uint64_t sched_enter_save()
 {
-    dll_node_t * node = &task->sched_node;
-
-    if ((ll_head_t *)node->data == list) {
-        DEBUG_PANIC("Task is already in the list");
-    }
-
-    if (node->data) {
-        DEBUG_PANIC("Task might still be in another ready list.");
-    }
-
-    
-    ll_push_list(list, node);
-    
-    node->data = (void*)list;
-}
-
-/* SCHED LOCK HELD */
-static void sched_remove_list(ll_head_t * list, task_t * task)
-{
-    dll_node_t * node = &task->sched_node;
-
-    if ((ll_head_t *)node->data != list) {
-        DEBUG_PANIC("The current list is not the one we are removing from.");
-    }
-
-    if (!node->data) {
-        DEBUG_PANIC("The current node is not in a list.");
-    }
-
-    ll_delete_node(list, &task->sched_node);
-
-    node->data = NULL;
-}
-
-/* SCHED LOCK HELD */
-void sched_change_task_state(task_t * task, task_state_t new_state)
-{
-
-    ll_head_t * curr_list;
-    ll_head_t * new_list;
-
-    curr_list = (ll_head_t *)task->sched_node.data;
-
-    if (task->state == new_state) {
-        DEBUG_PANIC("New task state change same as old");
-    }
-
-    if (curr_list) {
-        sched_remove_list(curr_list, task);
-    }
-
-    switch (new_state) {
-        case TASK_READY:
-            new_list = &ready_list;
-            break;
-        case TASK_SLEEPING:
-            new_list = &sleep_list;
-            break;
-        case TASK_WAITING:
-            new_list = &wait_list;
-            break;
-        default:
-            new_list = NULL;
-        
-    }
-
-    if (new_list)
-        sched_add_list(new_list, task);
-
-    task->state = new_state;
-}
-
-
-void sched_sleep_on_lock(sleeplock_t * lock)
-{
-    //DEBUG("SLEEP ON LOCK ENTERED");
     uint64_t flags;
-    task_t * curr_task;
-
-    spinlock_irqsave(&sched_lock, &flags);
-    lock_spinlock(&lock->list_lock);
-    
-    curr_task = cpu_get_currcpu_info()->curr_task;
-    ll_push_list(&lock->sleep_list, &curr_task->lock_node);
-    lock_spinunlock(&lock->list_lock);
-    
-   
-    ASSERT_PANIC(curr_task->state == TASK_RUNNING, "The current task is not running");
-    
-    //DEBUG("ADDING TO SLEEP LIST");
-    sched_change_task_state(curr_task, TASK_SLEEPING);
-    
-    spinunlock_irqrestore(&sched_lock, flags);
-
-    //DEBUG("DESCHEDULING FROM SLEEP");
-    sched_schedule();
+    lock_spinlock_irqsave(&sched_lock, &flags);
+    return flags;
 }
 
-void sched_wake_on_lock(sleeplock_t * lock)
+void sched_exit_restore(uint64_t flags)
 {
+    unlock_spinlock_irqrestore(&sched_lock, flags);
+}
+
+void sched_enter()
+{
+    aarch64_dmb();
+    irq_disable();
+    lock_spinlock(&sched_lock);
+}
+
+void sched_exit()
+{
+    unlock_spinlock(&sched_lock);
+    aarch64_dmb();
+    irq_enable();
+}
+
+static task_t * get_idle_task()
+{
+    return &idle_tasks[cpu_get_id()];
+}
+
+static void sched_add_readyqueue(task_t * task)
+{   
+    if (!TASK_VALID(task)) {
+        DEBUG_PANIC("TASK IS NOT VALID");
+    }
+    if (queue_valid(&task->sched_chain)) {
+        DEBUG_PANIC("Task already in a queue");
+    }
+    enqueue_tail(&ready_queue, &task->sched_chain);
+}
+
+static task_t * sched_pop_readyqueue()
+{   
+    queue_entry_t qe;
     task_t * task;
-    dll_node_t * node;
-    uint64_t flags;
+    qe = dequeue_head(&ready_queue);
+    if (!qe)
+        return NULL;
+    task = STRUCT_P(qe, task_t, sched_chain);
+    queue_zero(qe);
 
-    spinlock_irqsave(&sched_lock, &flags);
-   // DEBUG("WAKE ON LOCK ENTERED");
-    lock_spinlock(&lock->list_lock);
-    /* Wake 1 task on the lock */
-    node = ll_pop_list(&lock->sleep_list);
-    lock_spinunlock(&lock->list_lock);
-
-    /* Empty list */
-    if (!node)
-        return;
-    task = STRUCT_P(node, task_t, lock_node);
-    
-
-    //DEBUG_DATA("Waking task state=", task->state);
-    ASSERT_PANIC(task->state == TASK_SLEEPING, "The current task is not sleeping");
-
-    sched_change_task_state(task, TASK_READY);
-
-    spinunlock_irqrestore(&sched_lock, flags);
+    return task;
 }
 
+static void sched_rm_queue(task_t * task)
+{   
+    queue_entry_t qe = &task->sched_chain;
+    if (queue_valid(qe)) {
+        DEBUG_PANIC("Queue not valid");
+    }
+    rmqueue(qe);
+    queue_zero(qe);
+}
 
-void sched_timer_tasklet(ticks_t elapsed_time)
+event_id_t event_init()
 {
-    task_t * task;
-    dll_node_t * node;
-    uint64_t flags;
+    return atomic_fetch_add_64(&event_ids, 1);
+}
 
-    spinlock_irqsave(&sched_lock, &flags);
+void event_waiton(event_id_t ev)
+{
+    uint64_t s = sched_enter_save();
+    task_t * curr_task = CURR_TASK;
+    uint32_t ev_hash = wait_hash(ev);
+    queue_entry_t q;
 
-    DLL_ITER_LIST(&wait_list, node) {
-        task = STRUCT_P(node, task_t, sched_node);
-        if (task->time_used <= elapsed_time) {
-            //sched_add_ready_list(task);
-        } else {
-            task->time_used -= elapsed_time;
+    if (ev_hash == NULL_EVENT_HASH) {
+        DEBUG_PANIC("NULL EVENT HASH");
+        sched_exit_restore(s);
+    }
+    
+    if (curr_task->wait_event || queue_valid(&curr_task->wait_chain)) {
+        DEBUG_DATA("WAIT EVENT ID=", curr_task->wait_event);
+        DEBUG_PANIC("Curr task is already waiting on an event");
+        sched_exit_restore(s);
+    }
+
+    q = &wait_queue[ev_hash];
+
+    lock_spinlock(&wait_lock[ev_hash]);
+
+    curr_task->wait_event = ev;
+    enqueue_tail(q, &curr_task->wait_chain);
+
+    unlock_spinlock(&wait_lock[ev_hash]);
+
+    sched_task_sleep();
+}
+
+void event_signal(event_id_t ev)
+{
+    task_t * task, * wake_task;
+    queue_entry_t q;
+    queue_entry_t qe;
+    uint64_t s = sched_enter_save();
+    uint32_t ev_hash = wait_hash(ev);
+
+    if (ev_hash == NULL_EVENT_HASH) {
+        sched_exit_restore(s);
+    }
+
+    lock_spinlock(&wait_lock[ev_hash]);
+    q = &wait_queue[ev_hash];
+
+    wake_task = NULL;
+    queue_iter(q, qe) {
+        task = qe_chain_access(qe, task_t, wait_chain);
+        if (!TASK_VALID(task)) {
+            DEBUG_PANIC("TASK IS NOT VALID");
+        }
+
+        if (task->wait_event == ev) {
+            wake_task = task;
+            break;
         }
     }
 
-    spinunlock_irqrestore(&sched_lock, flags);
+    if (wake_task) {
+        rmqueue(&wake_task->wait_chain);
+        /* Invalidate wait event */
+        sched_task_wakeup(wake_task);
+        wake_task->wait_event = 0;
+        queue_zero(&wake_task->wait_chain);
+    }
+
+    unlock_spinlock(&wait_lock[ev_hash]);
+    sched_exit_restore(s);
 }
 
-/* SCHED LOCK HELD */
-task_t * get_ready_task()
+void event_signalall(event_id_t ev)
 {
-    task_t * ready_task;
-    dll_node_t * node;
+    task_t * task;
+    queue_entry_t q;
+    queue_entry_t qe;
+    uint64_t s = sched_enter_save();
+    uint32_t ev_hash = wait_hash(ev);
 
-    if (!ll_list_size(&ready_list)) {
-        ready_task = &idle_tasks[cpu_get_id()];
-        //DEBUG("Idle task");
-        return ready_task;
-    }
-    
-
-    node = (dll_node_t *)ll_peek_first(&ready_list);
-
-
-    //DEBUG_DATA("POPPED READY NODE=", node);
-    if (!node) {
-        DEBUG_PANIC("Pop ready task failed");
+    if (ev_hash == NULL_EVENT_HASH) {
+        sched_exit_restore(s);
     }
 
+    lock_spinlock(&wait_lock[ev_hash]);
+    q = &wait_queue[ev_hash];
 
-    ready_task = STRUCT_P(node, task_t, sched_node);
+    queue_iter(q, qe) {
+        task = qe_chain_access(qe, task_t, wait_chain);
+        
+        if (task->wait_event == ev) {
+            rmqueue(&task->wait_chain);
+            sched_task_wakeup(task);
+            /* Invalidate the wake event on the task*/
+            task->wait_event = 0;
+            queue_zero(&task->wait_chain);
+        }
+    }
 
-    sched_change_task_state(ready_task, TASK_RUNNING);
-
-    return ready_task;
+    unlock_spinlock(&wait_lock[ev_hash]);
+    sched_exit_restore(s);
 }
 
-void sched_pull_ready_task()
+/* ISR CONTEXT */
+void sched_async_timeout()
+{
+    task_t * curr_task;
+    uint64_t s = sched_enter_save();
+    curr_task = CURR_TASK;
+
+    if (curr_task->state & TASK_PAUSED && !(curr_task->state & TASK_IDLE)) {
+        curr_task->state &= ~TASK_PAUSED;
+        curr_task->state |= TASK_READY;
+        if (!TASK_VALID(curr_task)) {
+            DEBUG_PANIC_ALL("TASK NOT VALID");
+        }
+
+        sched_add_readyqueue(curr_task);
+        aarch64_dmb();
+        /* Does not return, SCHED LOCK held intentional. */
+        task_switch_async();
+    }
+
+    /* If the current task is not paused, continue out of ISR normally
+     * since we probably had another thread scheduled. */
+    sched_exit_restore(s);
+}
+
+/* ISR Context - Called by localtimer IRQ
+ * Core0 pauses the scheduler and bills time for all running threads.
+ */
+void sched_timer_isr()
+{
+    task_t * task;
+    uint64_t elapsed;
+    uint64_t s = sched_enter_save();
+
+    elapsed = timer_difference(last_sched_timestamp, localtimer_gettime());
+    last_sched_timestamp = localtimer_gettime();
+
+    for (int i = 0; i < CORE_NUM; i++) {
+        task = cpu_get_percpu_info(i)->curr_task;
+        if (!TASK_VALID(task)) {
+            DEBUG_PANIC_ALL("TASK IS NOT VALID");
+        }
+        /* Task is on the ready list or an idle task, ignore it. */
+        if (task->state & TASK_READY || task->state & TASK_IDLE || task->state & TASK_PAUSED
+            || task->state & TASK_UNINT) {
+            continue;
+        }
+
+        /* First time billing this task? Ignore it because it could have been
+         * just scheduled. */
+        if (task->first_quanta) {
+            task->first_quanta = 0;
+            continue;
+        }
+        
+        /* No time left, set the task as paused and interrupt the core its on
+         * to run the timeout handler. */
+        if (task->time_left <= elapsed) {
+            task->state |= TASK_PAUSED;
+            aarch64_dmb();
+            /* Interrupt the core and make them execute the async_timeout handler */
+            mbox_core_cmd_int(i, cpu_get_id(), CORE_EXEC, (uint32_t)sched_async_timeout);
+        } else {
+            task->time_left -= elapsed;
+        }
+    }
+
+    aarch64_dmb();
+
+    sched_exit_restore(s);
+}
+
+/* Select a next task to run. Called from task_switching context.
+ * SCHED LOCK HELD */
+task_t * sched_task_select()
 {
     task_t * next_task;
-    uint64_t flags;
-    
-    spinlock_irqsave(&sched_lock, &flags);
-    
-    next_task = get_ready_task();
 
-    //DEBUG_DATA("next_task=", next_task);
-    //DEBUG_DATA("Next_task stack=", next_task->el1_stack_ptr);
+    next_task = sched_pop_readyqueue();
+    /* Ready queue is empty, get the idle task. */
+    if (!next_task) {
+        next_task = IDLE_TASK;
+    }
 
-    cpu_get_currcpu_info()->curr_task = next_task;
+    if (!TASK_VALID(next_task)) {
+        DEBUG_DATA("TASK ADDR=", next_task);
+        DEBUG_DATA("Failed task id=", next_task->task_id);
+        DEBUG_DATA("Failed task state=", next_task->state);
+        DEBUG_PANIC_ALL("Task is not valid");
+    }
     
-    spinunlock_irqrestore(&sched_lock, flags);
+    next_task->state &= ~TASK_READY;
+
+    return next_task;
+}
+
+/* Wakeup the task and put it on the ready queue. 
+ * SCHED LOCK HELD */
+void sched_task_wakeup(task_t * task)
+{
+
+    if (!TASK_VALID(task)) {
+        DEBUG_PANIC("TASK NOT VALID");
+    }
+
+    if (!task->wait_event || !(task->state & TASK_WAITING)) {
+        DEBUG_PANIC("No wait event or task is not in waiting state");
+    }
+
+    lock_spinlock(&task->lock);
+
+    task->state &= ~TASK_WAITING;
+    task->state |= TASK_READY;
+    
+    sched_add_readyqueue(task);
+
+    unlock_spinlock(&task->lock);
+}
+
+/* Block the current task and stop it from being scheduled */
+void sched_task_block()
+{
+    uint64_t s;
+    task_t * curr_task;
+
+    curr_task = CURR_TASK;
+
+    lock_spinlock(&curr_task->lock);
+
+    ASSERT_PANIC(curr_task->state & TASK_RUNNING, "Task is not running");
+
+    curr_task->state &= ~TASK_RUNNING;
+    curr_task->state |= TASK_BLOCKED;
+
+    unlock_spinlock(&curr_task->lock);
+
+    sched_schedule();
+}
+
+/* Put the current task to sleep, the current task is waiting on an event to be woken up from. */
+void sched_task_sleep()
+{
+    task_t * curr_task;
+
+    curr_task = CURR_TASK;
+
+    if (!curr_task->wait_event) {
+        DEBUG_PANIC("Curr task is not waiting for an event to be woken up from");
+    }
+
+    lock_spinlock(&curr_task->lock);
+    curr_task->state |= TASK_WAITING;
+    unlock_spinlock(&curr_task->lock);
+
+    sched_task_block();
+}
+
+/*
+ * Sync Sched order
+ *
+ * Initial sched call - (sched_yield, sched_task_block, sched_task_wakeup), aquire schedlock
+ * SYNC_TASK_SAVE_CONTEXT - Registers pushed on stack and stack addr saved in curr_task
+ * sched_task_select - Pull the next thread off the ready queue
+ * Switch stack to new thread - the currtask on the cpu is now completly saved and can safelty
+ *                              be resumed
+ * sched_task_switch - Set the currtask ptr to the new task to switch to, set the state to running, 
+ *                     reload any timer info, release sched lock
+ * RESTORE_TASK_CONTEXT - Restore the stack again from saved ptr, restore the registers and jump to saved
+ *                        code addr
+ * */
+
+/*
+ * Async sched order
+ * IRQ FIRED - Current stack and regs pushed onto stack, invoked by sched_timer_isr
+ * sched_async_timeout - aquire sched lock, if the current task is paused push onto ready queue,
+ *                       task_switch_async,
+ * sched_task_select - Rest same as sync sched order
+ * */
+
+/* Switch to task
+ * Called as the last function in the task switching
+ * critial section.
+ * 
+ *
+ *  SCHED_LOCK HELD
+ *  CURR_TASK LOCK HELD
+ */
+void sched_task_switch(task_t * task)
+{
+    cpu_get_currcpu_info()->curr_task = task;
+    if (!TASK_VALID(task)) {
+        DEBUG_PANIC("TASK NOT VALID");
+    }
+    task->state &= ~TASK_BLOCK_STATES;
+    task->state |= TASK_RUNNING;
+    task_reload(task);
+
+    aarch64_dmb();
+    aarch64_isb();
+    /* Sched exit to exit the scheduler and task switch critical section. */
+    sched_exit();
 }
 
 void sched_schedule()
@@ -268,16 +466,38 @@ void sched_schedule()
     task_switch_sync();
 }
 
-void make_task(task_t * task, void * code_addr)
+void sched_yield()
+{   
+    uint64_t flags;
+    task_t * curr_task;
+    
+    sched_enter();
+
+    curr_task = cpu_get_currcpu_info()->curr_task;
+
+    if (!TASK_VALID(curr_task)) {
+        DEBUG_PANIC_ALL("TASK INVALID");
+    }
+
+    if (curr_task != IDLE_TASK) {
+        sched_add_readyqueue(curr_task);
+        curr_task->state &= ~TASK_RUNNING;
+        curr_task->state |= TASK_READY;
+    }
+
+    sched_schedule();
+}
+
+static void sched_test(void * code_addr)
 {
-    uint64_t task_stack;
-    task_stack = (uint64_t)kalloc_alloc(PAGE_SIZE, 0);
-    ASSERT_PANIC(task_stack, "Could not alloc idle task stack");
-    task_stack = (char *)task_stack + PAGE_SIZE;
+    task_t * task;
 
-
-
-    task_init(task, task_stack, code_addr);
+    for (int i = 0; i < CORE_NUM; i++) {
+        task = (task_t *)kalloc_alloc(sizeof(task_t), 0);
+        task_create(task, code_addr);
+        task->state = TASK_READY;
+        sched_add_readyqueue(task);
+    }
 }
 
 void sched_init()
@@ -286,43 +506,33 @@ void sched_init()
     task_t * task;
     cpu_init_info();
 
-    ll_head_init(&ready_list, DLL_NODE_T);
-    ll_head_init(&sleep_list, DLL_NODE_T);
-    ll_head_init(&wait_list, DLL_NODE_T);
+    queue_init(&ready_queue);
+
+    for (int i = 0; i < WAIT_QUEUE_NUM; i++) {
+
+        queue_init(&wait_queue[i]);
+        spinlock_init(&wait_lock[i]);
+    }
 
     for (int i = 0; i < CORE_NUM; i++) {
-        DEBUG_DATA("PREPPING IDLE TASK AT=", &idle_tasks[i]);
-        make_task(&idle_tasks[i], idle_loop);
-        
+        DEBUG("IDLE TASK");
+        task_create(&idle_tasks[i], idle_loop);
+
+        idle_tasks[i].state = TASK_IDLE;     
         cpu = cpu_get_percpu_info(i);
         
         ASSERT_PANIC(cpu, "Cpu info is null");
         cpu->curr_task = &idle_tasks[i];
+
     }
-
-
 
     lock_init(&sched_lock);
+    last_sched_timestamp = localtimer_gettime();
 
-
-    sched_test();
-   // DEBUG_PANIC("STOP");
-}
-
-void sched_test()
-{
-
-
-    task_t * task;
-
-    for (int i = 0; i < CORE_NUM; i++) {
-        task = (task_t *)kalloc_alloc(sizeof(task_t), 0);
-        //DEBUG_DATA("TASK INIT=", task);
-        make_task(task, test_loop);
-        sched_change_task_state(task, TASK_READY);
-    }
-
-    sleeplock_init(&test_lock);
+    /* TEST INIT */
+    sched_test(test_loop);
+    sched_test(test_loop2);
+    slock_init(&test_lock);
 }
 
 void sched_start()
@@ -333,9 +543,6 @@ void sched_start()
     id = cpu_get_id();
     cpu = cpu_get_currcpu_info();
 
-    //DEBUG_DATA("Stack var address=", &cpu->curr_task->el1_stack_ptr);
-    //DEBUG_DATA("Curr_task=", cpu->curr_task);
-    //DEBUG_DATA("Curr_task stack=", cpu->curr_task->el1_stack_ptr);
     ASSERT_PANIC(cpu->curr_task == &idle_tasks[id], "Task we are starting is not the idle task");
 
     task_start();
