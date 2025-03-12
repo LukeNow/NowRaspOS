@@ -10,9 +10,9 @@
 
 _start:
     // Move the multiboot info to register for later use
-    mov x12, x0
+    mov x13, x0
     // Save start addr for cores to jump to when started
-    adr x11, _start	
+    adr x14, _start	
  
     ldr     x0, =0x30d00800
     msr     sctlr_el1, x0                         // Update "System Control Register (EL1)":
@@ -135,8 +135,8 @@ master_core:
     cbnz    w2, 1b
 
     // jump to C kernel code, should not return    
-2:  mov     x0, x12 // multi boot info
-    mov     x1, x11 // Core start addr
+2:  mov     x0, x13 // multi boot info
+    mov     x1, x14 // Core start addr
     mov     x2, #0x0 //res
     mov     x3, #0x0 // res
     bl      kernel_main
