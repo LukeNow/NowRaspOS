@@ -38,6 +38,20 @@ void* memset(void* bufptr, int value, size_t size)
 	return bufptr;
 }
 
+void *memset_64(uint64_t * bufptr, uint64_t val, size_t size)
+{	
+	uint64_t * bufend;
+
+    size += (size % sizeof(uint64_t)); //Round up to nearest uint64_t
+	bufend = (uint64_t*)((uint8_t *)bufptr + size);
+
+	for (uint64_t *buf = bufptr; buf < bufend; buf++) {
+		*buf = val;
+	}
+
+	return bufptr;
+}
+
 void* memcpy(void *restrict dstptr, const void *restrict srcptr, size_t size) 
 {
 	unsigned char* dst = (unsigned char*) dstptr;
