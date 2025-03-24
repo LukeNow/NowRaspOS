@@ -3,7 +3,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
-
+#include <stdbool.h>
+#include <common/common.h>
 #include <kernel/timer.h>
 #include <common/linkedlist.h>
 #include <kernel/timer.h>
@@ -40,18 +41,33 @@ typedef enum task_state {
 typedef uint64_t event_id_t;
 #define NULL_EVENT_HASH ((uint32_t)~0)
 
+typedef struct event {
+    event_id_t id;
+    time_us_t wait_time_left;
+} event_t;
+
+#define SCHED_WAIT_TICKS 32
+
 typedef struct task {
     /* DO NOT MOVE, we grap the stack pointer from the top of struct. */
     uint64_t el1_stack_ptr;
     spinlock_t lock;
+    /* queue chain structs for the ready queue and for a wait queue. */
     queue_chain_t sched_chain;
     queue_chain_t wait_chain;
+    /* Magic val to check task struct integrity. */
     uint64_t magic;
-    uint64_t time_left;     // Time in us
-    uint64_t quanta;        // Time in us
-    uint32_t first_quanta;
+    /* The time left of the given quanta, and its given amount of time to run. */
+    time_us_t time_left;     // Time in us
+    time_us_t quanta;        // Time in us
+    /* Is this the first time we are billing the task? If it is we bill them next time 
+     * since we dont want to bill tasks that have just been scheduled. */
+    bool first_quanta; 
+    /* If the task has been passed by the scheduler SCHED_WAIT_TICK times its priority will be elavated. */
+    uint32_t sched_wait_ticks;
+    uint32_t starting_prio;
     uint32_t task_id;
-    event_id_t wait_event;
+    event_t wait_event;
     task_state_t state;
     char name[TASK_NAME_LEN];
 } task_t;
