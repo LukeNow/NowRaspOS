@@ -34,25 +34,9 @@ void handle_invalid_irq(int irq_entry)
 
 void handle_sync_irq(uint64_t exception)
 {
-    uint64_t esr;
-    uint64_t far;
-    task_t * task;
-    DEBUG_DATA("SYNC HANDLER CALLED =", exception);
+    cpu_core_dump_all();
 
-    DEBUG_DATA("CPU ID=", cpu_get_id());
-    AARCH64_MRS(esr_el1, esr);
-
-    DEBUG_DATA("ESR= ", esr);
-
-    AARCH64_MRS(far_el1, far);
-    DEBUG_DATA("Far= ", far);
-
-    DEBUG_DATA("Failed task addr=", cpu_get_currcpu_info()->curr_task);
-    DEBUG_DATA("Failed Stack addr=", cpu_get_currcpu_info()->curr_task->el1_stack_ptr);
-
-    task = cpu_get_currcpu_info()->curr_task;
-
-    DEBUG_PANIC_ALL("STOP");
+    while (1) {}
 }
 
 void localtimer_handle()
