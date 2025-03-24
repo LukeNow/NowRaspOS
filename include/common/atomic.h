@@ -10,6 +10,8 @@
 typedef uint32_t atomic32_t;
 typedef uint64_t atomic64_t;
 
+extern int atomic_semaphore_give(uint64_t * count);
+extern int atomic_semaphore_take(uint64_t * count);
 extern int atomic_cmpxchg_64(uint64_t *ptr, uint64_t old_val, uint64_t new_val);
 /* Try the cmpxchg a number of times. */
 int atomic_cmpxchg_try_64(uint64_t * ptr, uint64_t old_val, uint64_t new_val, uint32_t tries);

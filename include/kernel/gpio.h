@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define GPU_DMA_BASE	0x00000000c0000000
 #define MMIO_BASE       0x000000003f000000
 #define MMIO_END        0x0000000040000000
 #define MMIO_QA7_BASE 	0x0000000040000000
