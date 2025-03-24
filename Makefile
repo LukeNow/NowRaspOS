@@ -2,7 +2,7 @@
 
 SRCS = $(wildcard *.c)
 OBJS = $(SRCS:.c=.o)
-CFLAGS = -Wall -O2 -Wextra -ffreestanding -mcpu=cortex-a53 -march=armv8-a -mgeneral-regs-only
+CFLAGS = -Wall -O2 -Wextra -ffreestanding -mcpu=cortex-a53 -march=armv8-a -mgeneral-regs-only -mstrict-align
 LFLAGS = -ffreestanding -O2 -nostdlib
 QEMU_FLAGS = -serial null -serial stdio -smp 4 
 QEMU_DBG_FLAGS = -S -s
@@ -16,10 +16,12 @@ GDB = aarch64-elf-gdb
 
 SRC_KERNEL = src/kernel
 SRC_COMMON = src/common
+SRC_EMBSTDIO = src/emb-stdio
 HEADER_INCLUDE = include
 
 KERNSOURCES = $(wildcard $(SRC_KERNEL)/*.c)
 COMMONSOURCES = $(wildcard $(SRC_COMMON)/*.c)
+EMBSTDIOSOURCES = $(wildcard $(SRC_EMBSTDIO)/*.c)
 KERNSOURCESASM = $(wildcard $(SRC_KERNEL)/*.S)
 COMMONSOURCESASM = $(wildcard $(SRC_COMMON)/*.S)
 
@@ -30,6 +32,7 @@ OBJECTS = $(patsubst $(SRC_KERNEL)/%.c, $(OBJ_DIR)/%.o, $(KERNSOURCES))
 OBJECTS += $(patsubst $(SRC_COMMON)/%.c, $(OBJ_DIR)/%.o, $(COMMONSOURCES))
 OBJECTS += $(patsubst $(SRC_KERNEL)/%.S, $(OBJ_DIR)/%.o, $(KERNSOURCESASM))
 OBJECTS += $(patsubst $(SRC_COMMON)/%.S, $(OBJ_DIR)/%.o, $(COMMONSOURCESASM))
+OBJECTS += $(patsubst $(SRC_EMBSTDIO)/%.c, $(OBJ_DIR)/%.o, $(EMBSTDIOSOURCES))
 HEADERS = $(wildcard $(HEADER_INCLUDE)/*.h)
 
 IMG_NAME = NowRaspOS
@@ -56,6 +59,11 @@ $(OBJ_DIR)/%.o: $(SRC_COMMON)/%.S
 	mkdir -p $(@D)
 	$(CC) $(CFLAGS) -I$(SRC_COMMON) -c $< -o $@
 
+$(OBJ_DIR)/%.o: $(SRC_EMBSTDIO)/%.c
+	mkdir -p $(@D)
+	$(CC) $(CFLAGS) -I$(SRC_KERNEL) -I$(HEADER_INCLUDE) -c $< -o $@
+
+
 kernel8.img: start.o $(OBJS)
 	aarch64-elf-ld -nostdlib start.o $(OBJS) -T link.ld -o kernel8.elf
 	aarch64-elf-objcopy -O binary kernel8.elf kernel8.img
@@ -66,7 +74,7 @@ clean:
 compile: clean build
 
 run: compile
-	qemu-system-aarch64 -M raspi3b -kernel $(IMG) $(QEMU_FLAGS) $(DTB)
+	qemu-system-aarch64 -M raspi3b -kernel $(IMG) $(QEMU_FLAGS)
 
 debug:
 	$(GDB) $(ELF)
