@@ -7,5 +7,6 @@ void kalloc_slab_test();
 void kalloc_cache_test();
 void mm_test();
 void kalloc_test();
+void queue_test();
 
 #endif

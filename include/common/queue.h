@@ -58,6 +58,11 @@ void rmqueue(queue_entry_t qe);
     queue_zero(qe);                                             \
 }
 
+#define queue_next_safe(qe, prev_qe) ((queue_next(prev_qe) == qe) ? queue_next(qe) : queue_next(prev_qe))
+
+#define queue_iter_safe(q_head, qe, qe_prev) \            
+    for ((qe) = queue_first(q_head), (qe_prev) = queue_prev(qe); queue_valid(qe) && !queue_end((q_head), (qe)); (qe) = queue_next_safe((qe), (qe_prev)), (qe_prev) = queue_prev(qe))
+
 #define queue_iter(q_head, qe) \
     for ((qe) = queue_first(q_head); queue_valid(qe) && !queue_end((q_head), (qe)); (qe) = queue_next(qe))
 

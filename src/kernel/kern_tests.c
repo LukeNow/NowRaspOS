@@ -158,6 +158,50 @@ void ll_test()
 	dll_test();
 }
 
+#define QUEUE_CHAIN_NUM 20
+void queue_test()
+{
+	queue_t qe;
+	queue_t qe_prev;
+	queue_head_t qhead;
+	queue_chain_t qes[QUEUE_CHAIN_NUM];
+	queue_init(&qhead);
+	queue_t * qe_p;
+
+	for (int i = 0; i < QUEUE_CHAIN_NUM; i++) {
+		enqueue_tail(&qhead, &qes[i]);
+	}
+
+	queue_t qe_iter;
+	int iter = 0;
+	queue_iter_safe(&qhead, qe, qe_prev) {
+		
+		DEBUG_DATA_DIGIT("I=", iter);
+		qe_iter = dequeue_head(&qhead);
+		
+		if (&qes[iter] != qe_iter) {
+			DEBUG_PANIC("Wrong element 1");
+		}
+		
+		if (&qes[iter] != qe) {
+			DEBUG_PANIC("Wrong element 2");
+		}
+
+		if (qes[iter].next->prev == qe) {
+			DEBUG_PANIC("Failed dequeue");
+		}
+
+		if (qe_prev != &qhead) {
+			DEBUG_PANIC("Qe prev is not head");
+		}
+
+		queue_zero(qe);
+		iter++;
+	}
+
+	DEBUG("Queue test success");
+}
+
 void math_test()
 {
 	printf("MATH TEST START\n");
