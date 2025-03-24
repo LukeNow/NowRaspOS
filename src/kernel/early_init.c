@@ -18,10 +18,17 @@ EARLY_TEXT uint64_t early_mmu_get_map_entry(uint64_t addr)
     uint32_t l1_index;
     uint64_t entry_l0;
     uint64_t entry_l1;
+    uint64_t * l0_entry;
     uint64_t * entry_l1_addr;
 
+    if (addr >= MMU_UPPER_ADDRESS) {
+        l0_entry = high_l0_entry;
+    } else {
+        l0_entry = low_l0_entry;
+    }
+
     l0_index = L0_ENTRY(addr);
-    entry_l0 = low_l0_entry[l0_index];
+    entry_l0 = l0_entry[l0_index];
     if (!entry_l0)
         return entry_l0;
 
@@ -146,6 +153,7 @@ EARLY_TEXT int early_mmu_init(mmu_mem_map_t * phys_mem_map, uint32_t phys_mem_si
     
     // Full system data barrier, make sure all writes are commited
     asm volatile ("dsb  sy");
+    high_l0_entry = low_l0_entry;
     early_mmu_enable();
 
     return 0;
