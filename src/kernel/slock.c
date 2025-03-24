@@ -7,6 +7,7 @@
 #include <common/assert.h>
 
 #define SLOCK_TRIES 20
+#define WAIT_TIME_MS 100
 
 void slock_init(slock_t * slock)
 {
@@ -25,7 +26,7 @@ void lock_slock(slock_t * slock)
 
         if (tries > SLOCK_TRIES) {
             tries = 0;
-            event_waiton(slock->ev_id);
+            event_waiton(slock->ev_id, TIME_MS_TO_US(WAIT_TIME_MS));
         }
 
         ret = lock_trylock(&slock->lock);
