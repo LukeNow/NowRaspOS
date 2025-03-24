@@ -1,5 +1,32 @@
 .section ".text"
 
+// semaphore_take(uint64_t * count)
+.global atomic_semaphore_take
+.type atomic_semaphore_take, %function
+atomic_semaphore_take:
+    mov x3, x0
+1:
+    ldaxr x1, [x3]
+    cbz x1, 1b   // if zero we spin
+    mov x2, #1
+    sub x1, x1, x2
+    stlxr w0, x1, [x3]
+    cbnz w0, 1b
+    ret
+
+// semaphore_give(uint64_t * count)
+.global atomic_semaphore_give
+.type atomic_semaphore_give, %function
+atomic_semaphore_give:
+    mov x3, x0
+1:
+    ldaxr x1, [x3]
+    mov x2, #1
+    add x1, x1, x2
+    stlxr w0, x1, [x3]
+    cbnz w0, 1b
+    ret
+
 // uint64_t *ptr, uint64_t old, uint64_t new
 .global atomic_cmpxchg_64
 .type atomic_cmpxchg_64, %function
@@ -57,7 +84,7 @@ atomic_fetch_or_64:
     ret
 
 // uint32_t * ptr
-.global _atomic_ld_32
+.global atomic_ld_32
 .type atomic_ld_32, %function
 atomic_ld_32:
     ldaxr w6, [x0]
