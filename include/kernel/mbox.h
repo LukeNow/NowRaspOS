@@ -1,9 +1,8 @@
 #ifndef __MBOX_H
 #define __MBOX_H
 
+#include <stdbool.h>
 #include <kernel/gpio.h>
-
-#define MBOX_REQUEST 0
 
 /* channels */
 #define MBOX_CH_POWER   0
@@ -187,14 +186,16 @@ typedef enum {
 	PB_CCP2TX		= 0x8,								// Mailbox Tag Channel CCP2TX power block 
 } mbox_power_id_t;
 typedef enum {
-    REQUEST = 0x00000000,
-    RESPONSE_SUCCESS = 0x80000000,
-    RESPONSE_ERROR = 0x80000001
+    MBOX_REQUEST = 0x00000000,
+    MBOX_RESPONSE_SUCCESS = 0x80000000,
+    MBOX_RESPONSE_ERROR = 0x80000001
 } mbox_res_code_t;
 
 typedef enum {
 	CORE_EXEC = 1,
-	CORE_INVALIDATE = 2
+	CORE_INVALIDATE = 2,
+	CORE_DUMP = 3,
+	CORE_STOP = 4
 } mbox_core_cmd_t;
 
 #define MBOX_CORE_CMD_BYTE 0x0000000F
@@ -225,7 +226,7 @@ typedef uint32_t mbox_status_t;
 
 void mbox_send(mbox_message_t msg, mbox_channel_t ch);
 uint32_t mbox_read(mbox_channel_t ch);
-int mbox_request(uint32_t * response_buf, uint8_t data_count, ...);
+bool mbox_request(uint32_t * response_buf, uint8_t data_count, ...);
 mbox_message_t mbox_make_msg(uint32_t *mbox, uint32_t ch);
 
 void mbox_enable_irq(uint8_t corenum);

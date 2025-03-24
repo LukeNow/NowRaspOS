@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <kernel/mbox.h>
 #include <kernel/gpio.h>
 #include <common/common.h>
@@ -8,6 +9,7 @@
 #include <common/assert.h>
 #include <kernel/mmu.h>
 #include <kernel/mm.h>
+#include <kernel/cpu.h>
 
 #define MBOX_HEADER_SIZE 3
 
@@ -59,12 +61,11 @@ uint32_t mbox_read(mbox_channel_t ch)
     return val;
 }
 
-int mbox_request(uint32_t * response_buf, uint8_t data_count, ...)
+bool mbox_request(uint32_t * response_buf, uint8_t data_count, ...)
 {   
     uint32_t __attribute__((aligned(16))) msg[data_count + MBOX_HEADER_SIZE];
     uint32_t msg_addr = (uint32_t) mmu_get_phys_addr((uint64_t)&msg[0]);
 
-    DEBUG_DATA("Msg addr=", msg_addr);
     va_list list;
     va_start(list, data_count);
 
@@ -85,13 +86,17 @@ int mbox_request(uint32_t * response_buf, uint8_t data_count, ...)
 
     aarch64_cache_flush_invalidate(msg_addr);
 
-    if (response_buf) {
-        for (int i = 0; i < data_count; i++) {
-            response_buf[i] = msg[i + 2];
+    if (msg[1] == MBOX_RESPONSE_SUCCESS) {
+        if (response_buf) {
+            for (int i = 0; i < data_count; i++) {
+                response_buf[i] = msg[i + 2];
+            }
         }
-    }
 
-    return 0;
+        return true;
+    }
+    
+    return false;
 }
 
 mbox_message_t mbox_make_msg(uint32_t *mbox, uint32_t ch)
@@ -167,17 +172,25 @@ void mbox_handle_core_int(uint8_t corenum, uint8_t fromcore)
     uint32_t cmd = msg & MBOX_CORE_CMD_BYTE;
     msg = msg &~ MBOX_CORE_CMD_BYTE;
 
-    if (msg == 0) {
-        DEBUG_PANIC("MBOX MESSAGE IS 0");
-    }
 
     mbox_clear_core_msg(corenum, fromcore);
 
     switch (cmd) {
         case CORE_EXEC:
         //DEBUG("CORE EXEC MESSAGE");
+            if (msg == 0) {
+                DEBUG_PANIC("CORE EXEC MSG IS 0");
+            }
             uint64_t func_addr = mmu_get_kern_addr((uint64_t)msg);
+            
             ((void (*)())func_addr)();
+            break;
+        case CORE_DUMP:
+            cpu_core_dump();
+            cpu_core_stop();
+            break;
+        case CORE_STOP:
+            cpu_core_stop();
             break;
         case CORE_INVALIDATE:
             break;
