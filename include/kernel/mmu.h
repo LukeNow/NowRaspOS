@@ -128,6 +128,8 @@ typedef union {
 } VMSAv8_64_DESCRIPTOR;
 */
 
+uint64_t mmu_gpu_to_arm_addr(uint64_t gpu_bus_addr);
+uint64_t mmu_arm_to_gpu_addr(uint64_t arm_addr);
 uint64_t mmu_get_kern_addr(uint64_t phys_addr);
 uint64_t mmu_get_phys_addr(uint64_t virt_addr);
 int mmu_map_entry(uint64_t *phys_addr, uint64_t *virt_addr, uint64_t attributes);

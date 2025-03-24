@@ -10,6 +10,19 @@
 #include <kernel/mmu.h>
 #include <common/assert.h>
 
+uint64_t mmu_gpu_to_arm_addr(uint64_t gpu_bus_addr)
+{
+    return gpu_bus_addr &= ~GPU_DMA_BASE;
+}
+
+uint64_t mmu_arm_to_gpu_addr(uint64_t arm_addr)
+{
+    if (arm_addr >= MMU_UPPER_ADDRESS) {
+        arm_addr = mmu_get_phys_addr(arm_addr);
+    }
+
+    return arm_addr |= GPU_DMA_BASE;
+}
 
 uint64_t mmu_get_phys_addr(uint64_t virt_addr)
 {
