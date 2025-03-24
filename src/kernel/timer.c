@@ -11,8 +11,9 @@
 #define LOCAL_TIMER_SCALAR 384  // 2 * 19.2Mhz crystal freq = 38.4Mhz
 #define ARM_PRESCALAR_DIV 250
 
-uint64_t localtimer_time_us = 0;
-uint32_t localtimer_period_us = 0;
+time_us_t localtimer_time_us = 0;
+time_us_t localtimer_period_us = 0;
+ticks_t localtimer_ticks = 0;
 
 uint32_t systemtimer_reload_usec = 20000;
 
@@ -111,14 +112,20 @@ void armtimer_irq_init(uint32_t period_in_us)
     armtimer_clearirq();
 }
 
-uint64_t localtimer_gettime()
+time_us_t localtimer_gettime()
 {
     return localtimer_time_us;
+}
+
+ticks_t localtimer_getticks()
+{
+    return localtimer_ticks;
 }
 
 void localtimer_isr_tick()
 {
     localtimer_time_us += localtimer_period_us;
+    localtimer_ticks ++;
 }
 
 void localtimer_clearirq()
@@ -135,7 +142,7 @@ void localtimer_init(uint32_t period_in_us)
     QA7->TimerControlStatus.ReloadValue = divisor;
     QA7->TimerControlStatus.TimerEnable = 1;
     QA7->TimerClearReload.Reload = 1;
-    localtimer_period_us = period_in_us;
+    localtimer_period_us = (time_us_t)period_in_us;
 }
 
 void localtimer_irqinit(uint32_t period_in_us, uint8_t corenum)

@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <kernel/task.h>
 #include <common/lock.h>
+#include <common/common.h>
 
 /* Event definitions */
 /* Returns an event id that tasks can wait on */
