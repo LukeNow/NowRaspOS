@@ -11,7 +11,7 @@
 /* Returns an event id that tasks can wait on */
 event_id_t event_init();
 /* Wait on an event id. Sleeps the current task. */
-void event_waiton(event_id_t ev);
+void event_waiton(event_id_t ev, time_us_t wait_time_us);
 /* Signal that an event has happened and wake one task. Wakes 1 task on the event wait list. */
 void event_signal(event_id_t ev);
 /* Signal that an event has happened and wake all waiting tasks. */
@@ -27,7 +27,7 @@ void sched_init();
 void sched_start();
 void sched_yield();
 void sched_schedule();
-
+void sched_task_add(task_t * task, task_state_t start_state, unsigned int starting_prio);
 
 void sched_timer_isr();
 void sched_async_timeout();
