@@ -93,6 +93,9 @@ typedef struct cpu_info {
 #define CURR_TASK (cpu_get_currcpu_info()->curr_task)
 
 uint32_t cpu_get_id();
+void cpu_core_dump_all();
+void cpu_core_dump();
+void cpu_core_stop();
 cpu_info_t * cpu_get_percpu_info(uint32_t id);
 cpu_info_t * cpu_get_currcpu_info();
 void cpu_init_info();

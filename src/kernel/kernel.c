@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <kernel/uart.h>
 #include <kernel/mbox.h>
 #include <kernel/mmu.h>
@@ -27,6 +28,12 @@
 #include <kernel/task.h>
 #include <kernel/cpu.h>
 #include <kernel/early_mm.h>
+#include <kernel/klog.h>
+#include <emb-stdio/emb-stdio.h>
+#include <emb-stdio/windows.h>
+
+#define TEST_KERNEL 0
+
 #define CORE_NUM 4
 
 ATOMIC_UINT64(core_ready);
@@ -76,8 +83,6 @@ void kernel_child_main(uint64_t mpidr_el1)
 
 	core = atomic_fetch_add_64((uint64_t *)&core_ready, 1);
 
-	DEBUG_DATA_DIGIT("Seen cores=", core);
-
 	irq_init();
 	mbox_enable_irq(corenum);
 	while (atomic_ld_64(&core_ready) != CORE_NUM - 1) {
@@ -85,17 +90,12 @@ void kernel_child_main(uint64_t mpidr_el1)
 	}
 	
 	DEBUG_DATA_DIGIT("Core num start=", corenum);
-
-
 	
 	sched_start();
-
 
 	while (1) {
 		CYCLE_WAIT(10);
 	}
-
-	//localtimer_irqinit(LOCALTIMER_PERIOD, corenum);
 
 }
 
@@ -113,12 +113,6 @@ static void start_cores(uint64_t core_start_addr)
 	aarch64_sev();
 }
 
-void notfunc()
-{
-	DEBUG("ENTERED");
-}
-
-
 void kernel_main(uint64_t dtb_ptr32, uint64_t core_start_addr, uint64_t x2, uint64_t x3)
 {
 	uint64_t time;
@@ -130,17 +124,14 @@ void kernel_main(uint64_t dtb_ptr32, uint64_t core_start_addr, uint64_t x2, uint
 	mmu_mem_map_t * phys_mem_map;
 	uint32_t * dtb;
 	int r;
+	bool init;
 
 	uint32_t buff[5];
 
 	uart_init();
 
 	phys_mem_map = mm_early_get_memmap();
-
 	dtb = (uint32_t *)dtb_ptr32;
-	DEBUG_DATA("CORE START ADDR=", core_start_addr);
-	DEBUG_DATA("DTB PTR=", dtb);
-	DEBUG_DATA("dtb = ", *dtb);
 
     DEBUG("Print memmap");
     for (int i = 0; i < 4; i++) {
@@ -148,22 +139,17 @@ void kernel_main(uint64_t dtb_ptr32, uint64_t core_start_addr, uint64_t x2, uint
         DEBUG_DATA("Size =", phys_mem_map[i].size);
         DEBUG_DATA("End addr =", phys_mem_map[i].start_addr + phys_mem_map[i].size);
     }
-	//uart_init();
-
-	//printf("Hello from main core!\n");
-
-
 	
-	r = mbox_request(&buff[0], 5, MAILBOX_TAG_GET_ARM_MEMORY, 8, 8, 0, 0);
-	if (r) {
+	init = mbox_request(&buff[0], 5, MAILBOX_TAG_GET_ARM_MEMORY, 8, 8, 0, 0);
+	if (!init) {
 		DEBUG_PANIC("Mem request failed");
 	}
 
 	DEBUG_DATA("Membase addr=", buff[3]);
 	DEBUG_DATA("Memsize= ", buff[4]);
 
-	r = mbox_request(&buff[0], 5, MAILBOX_TAG_GET_VC_MEMORY, 8, 8, 0, 0);
-	if (r) {
+	init = mbox_request(&buff[0], 5, MAILBOX_TAG_GET_VC_MEMORY, 8, 8, 0, 0);
+	if (!init) {
 		DEBUG_PANIC("Mem request failed");
 	}
 	
@@ -172,14 +158,20 @@ void kernel_main(uint64_t dtb_ptr32, uint64_t core_start_addr, uint64_t x2, uint
 
 	mm_init();
 	kalloc_init();
-	/*
+
+#ifdef TEST_KERNEL
 	ll_test();
 	kalloc_slab_test();
 	kalloc_cache_test();
 	mm_test();
 	kalloc_test();
-	*/
+	queue_test();
+#endif
 
+	irq_init();
+	mbox_enable_irq(0);
+	
+	//systemtimer_initirq(100000);
 	/*
 	for (int i =0; i < 10; i++) {
 		systemtimer_wait(1000000);
@@ -187,15 +179,14 @@ void kernel_main(uint64_t dtb_ptr32, uint64_t core_start_addr, uint64_t x2, uint
 
 		DEBUG_DATA_DIGIT("Time = ", time);
 	} */
-	
 
+	Init_EmbStdio(uart_puts);
+	init = PiConsole_Init(0, 0, 0, stdio_printf);
+	GotoXY(0, 0);
+	WriteText("HELLO From Kernel\n");
 
 	sched_init();
-	
-	irq_init();
-	mbox_enable_irq(0);
-	//DEBUG_PANIC("END core0");
-
+	klog_init(uart_puts);
 	localtimer_irqinit(LOCALTIMER_PERIOD, 0);
 	start_cores(core_start_addr);
 
@@ -203,21 +194,10 @@ void kernel_main(uint64_t dtb_ptr32, uint64_t core_start_addr, uint64_t x2, uint
 		CYCLE_WAIT(10);
 	}
 	
-	DEBUG("CORE0 Start");
-	//systemtimer_initirq(100000);
-	//localtimer_irqinit(LOCALTIMER_PERIOD, 0);
-	
-
-
 	sched_start();
 
-//	DEBUG_PANIC("END core0");
-	
-
-	
 	DEBUG_PANIC("END core0");
 	DEBUG("--- KERNEL END ---");
-
 
 	while (1) {
 		uart_send(uart_getc());

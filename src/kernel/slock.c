@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <common/common.h>
 #include <common/lock.h>
 #include <common/string.h>
 #include <kernel/slock.h>

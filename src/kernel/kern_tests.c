@@ -14,6 +14,7 @@
 #include <kernel/early_mm.h>
 #include <common/math.h>
 #include <common/rand.h>
+#include <common/queue.h>
 
 #define LL_TEST_NUM 6
 
