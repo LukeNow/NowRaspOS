@@ -13,11 +13,13 @@ _start:
     mov x13, x0
     // Save start addr for cores to jump to when started
     adr x14, _start	
- 
-    ldr     x0, =0x30d00800
-    msr     sctlr_el1, x0                         // Update "System Control Register (EL1)":
-                                                  //   set RES:1 bits (11, 20, 22, 23, 28, 29)
-                                                  //   disable caches (bits 2, 12)
+
+    mov	x0, #0x0800
+	movk	x0, #0x30d0, lsl #16
+	orr    x0, x0, #(0x1 << 2)            // The C bit on (data cache). 
+	orr    x0, x0, #(0x1 << 12)           // The I bit on (instruction cache)
+	msr	sctlr_el1, x0
+
     mov     x0, 0x80000000
     msr     hcr_el2, x0   
 
